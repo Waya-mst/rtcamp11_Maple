@@ -2,4 +2,3 @@
 #include <vector>
 
 void SetupVulkan();
-void recreateSwapchain();

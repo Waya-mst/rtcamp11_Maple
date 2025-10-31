@@ -44,16 +44,8 @@ extern VkSurfaceKHR c_surface;
 extern vk::UniqueSurfaceKHR surface;
 extern vk::SurfaceCapabilitiesKHR surfaceCapabilities;
 
-extern vk::UniqueSwapchainKHR swapchain;
-extern vk::SurfaceFormatKHR swapchainFormat;
-extern vk::PresentModeKHR swapchainPresentMode;
-extern std::vector<vk::Image> swapchainImages;
-extern std::vector<vk::UniqueImageView> swapchainImageViews;
-extern std::vector<vk::UniqueFramebuffer> swapchainFramebufs;
-extern vk::UniqueFence swapchainImgFence;
-
 extern vk::UniqueInstance instance;
-extern VkDebugUtilsMessengerEXT debugMessenger;
+extern vk::UniqueDebugUtilsMessengerEXT debugMessenger;
 extern vk::UniqueDevice device;
 extern vk::PhysicalDevice physicalDevice;
 extern vk::Queue queue;

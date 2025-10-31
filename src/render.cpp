@@ -19,7 +19,6 @@ void drawCall(){
     std::array<vk::UniqueSemaphore, MAX_FRAMES> imageAvailable;
     std::vector<vk::UniqueSemaphore> renderFinished;
     std::array<vk::UniqueFence, MAX_FRAMES> inFlight;
-    std::vector<vk::Fence> imagesInFlight(swapchainImages.size(), vk::Fence{});
 
     vk::SemaphoreCreateInfo semaphoreCreateInfo{};
     vk::FenceCreateInfo fenceCreateInfo;
@@ -149,7 +148,7 @@ void drawCall(){
 
         auto fenceToWait = inFlight[0].get();
 
-        device->waitForFences(fenceToWait, VK_TRUE, UINT64_MAX);
+        waitRes = device->waitForFences(fenceToWait, VK_TRUE, UINT64_MAX);
         size_t size = size_t(width) * size_t(height) * 4;
         void* mapped = device->mapMemory(outputBuffer.memory.get(), 0, size);
         char filename[256];

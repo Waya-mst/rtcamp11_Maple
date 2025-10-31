@@ -27,7 +27,7 @@ GLFWwindow* window;
 std::vector<const char*> extensions;
 
 vk::UniqueInstance instance;
-VkDebugUtilsMessengerEXT debugMessenger;
+vk::UniqueDebugUtilsMessengerEXT debugMessenger;
 
 VkSurfaceKHR c_surface;
 vk::UniqueSurfaceKHR surface;
@@ -35,14 +35,6 @@ vk::SurfaceCapabilitiesKHR surfaceCapabilities;
 
 vk::UniqueDevice device;
 vk::PhysicalDevice physicalDevice;
-
-vk::UniqueSwapchainKHR swapchain;
-vk::SurfaceFormatKHR swapchainFormat;
-vk::PresentModeKHR swapchainPresentMode;
-std::vector<vk::Image> swapchainImages;
-std::vector<vk::UniqueImageView> swapchainImageViews;
-std::vector<vk::UniqueFramebuffer> swapchainFramebufs;
-vk::UniqueFence swapchainImgFence;
 
 vk::Queue queue;
 uint32_t queueFamily = (uint32_t)-1;

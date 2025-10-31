@@ -2,10 +2,10 @@
 #include <iostream>
 
 
-VKAPI_ATTR VkBool32 VKAPI_CALL debug_message(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-	VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+VKAPI_ATTR vk::Bool32 VKAPI_CALL debug_message(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+	const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData
 );
 
@@ -44,13 +44,17 @@ void SetupVulkan(){
 	VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
 
     // create debug messenger
-	VkDebugUtilsMessengerCreateInfoEXT debugMessengerInfo = {};
-	debugMessengerInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    debugMessengerInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-    debugMessengerInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
-    debugMessengerInfo.pfnUserCallback = debug_message;
-    auto vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance.get(), "vkCreateDebugUtilsMessengerEXT");
-    VkResult result = vkCreateDebugUtilsMessengerEXT(instance.get(), &debugMessengerInfo, nullptr, &debugMessenger);
+    vk::DebugUtilsMessengerCreateInfoEXT ci{};
+    ci.messageSeverity =
+        vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+        vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+    ci.messageType =
+        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+    ci.setPfnUserCallback(debug_message);
+    ci.pUserData       = nullptr;
+    debugMessenger = instance->createDebugUtilsMessengerEXTUnique(ci);
 
     // select Device
     std::vector devices = instance->enumeratePhysicalDevices();
@@ -132,56 +136,10 @@ void SetupVulkan(){
     commandPool = device->createCommandPoolUnique(commandPoolCreateInfo);
 }
 
-void recreateSwapchain(){
-    swapchainFramebufs.clear();
-    swapchainImageViews.clear();
-    swapchainImages.clear();
-    swapchain.reset();
-
-    surfaceCapabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface.get());
-
-    vk::SwapchainCreateInfoKHR swapchainCreateInfo{};
-    swapchainCreateInfo.setSurface(surface.get());
-    swapchainCreateInfo.surface = surface.get();
-    swapchainCreateInfo.minImageCount = surfaceCapabilities.minImageCount + 1;
-    swapchainCreateInfo.imageFormat = swapchainFormat.format;
-    swapchainCreateInfo.imageColorSpace = swapchainFormat.colorSpace;
-    swapchainCreateInfo.imageExtent = surfaceCapabilities.currentExtent;
-    swapchainCreateInfo.imageArrayLayers = 1;
-    swapchainCreateInfo.imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc;
-    swapchainCreateInfo.imageSharingMode = vk::SharingMode::eExclusive;
-    swapchainCreateInfo.preTransform = surfaceCapabilities.currentTransform;
-    swapchainCreateInfo.presentMode = swapchainPresentMode;
-    swapchainCreateInfo.clipped = VK_TRUE;
-    swapchain = device->createSwapchainKHRUnique(swapchainCreateInfo);
-
-    swapchainImages = device->getSwapchainImagesKHR(swapchain.get());
-
-    swapchainImageViews.resize(swapchainImages.size());
-
-    for(size_t i = 0; i < swapchainImages.size(); i++){
-        vk::ImageViewCreateInfo imgViewCreateInfo;
-        imgViewCreateInfo.image = swapchainImages[i];
-        imgViewCreateInfo.viewType = vk::ImageViewType::e2D;
-        imgViewCreateInfo.format = swapchainFormat.format;
-        imgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
-        imgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        imgViewCreateInfo.subresourceRange.baseMipLevel = 0;
-        imgViewCreateInfo.subresourceRange.levelCount = 1;
-        imgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-        imgViewCreateInfo.subresourceRange.layerCount = 1;
-
-        swapchainImageViews[i] = device->createImageViewUnique(imgViewCreateInfo);
-    }
-}
-
-VKAPI_ATTR VkBool32 VKAPI_CALL debug_message(
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageTypes,
-	VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+VKAPI_ATTR vk::Bool32 VKAPI_CALL debug_message(
+    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	vk::DebugUtilsMessageTypeFlagsEXT messageTypes,
+	const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData)
 {
 	std::cout << pCallbackData->pMessage << std::endl;
