@@ -32,10 +32,11 @@ set(APP_SOURCES
   ${SRC_DIR}/shaders.cpp
   ${SRC_DIR}/uniform.cpp
   ${SRC_DIR}/vk_setup.cpp
-  ${SRC_DIR}/window.cpp
   ${SRC_DIR}/impl_tinygltf.cpp
   ${SRC_DIR}/impl_stb_image.cpp
+  ${SRC_DIR}/impl_stb_image_write.cpp
   ${SRC_DIR}/vulkan_dispatch.cpp
+  ${SRC_DIR}/output.cpp
 )
 
 

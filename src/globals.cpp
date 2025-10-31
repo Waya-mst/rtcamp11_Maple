@@ -65,6 +65,11 @@ Buffer indexBuffer;
 Buffer sceneBuffer;
 std::vector<Buffer> textureBuffers(1);
 
+Buffer outputBuffer;
+vk::UniqueImage outputImage;
+vk::UniqueDeviceMemory outputMemory;
+vk::UniqueImageView outputView;
+
 vk::UniqueImage image;
 
 vk::UniqueImage textureImage;

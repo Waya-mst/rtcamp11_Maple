@@ -2,8 +2,11 @@
 #include "../include/vk_setup.hpp"
 #include "../include/descriptors.hpp"
 #include <iostream>
+#include <stb_image_write.h>
 
 void drawCall(){
+    int frameIndex = 0;
+
     vk::CommandBufferAllocateInfo cmdAllocInfo{};
     cmdAllocInfo.setLevel(vk::CommandBufferLevel::ePrimary);
     cmdAllocInfo.setCommandPool(commandPool.get());
@@ -26,57 +29,21 @@ void drawCall(){
         imageAvailable[i] = device->createSemaphoreUnique(semaphoreCreateInfo);
         inFlight[i] = device->createFenceUnique(fenceCreateInfo);
     }
-    renderFinished.resize(swapchainImages.size());
+    renderFinished.resize(1);
     for (auto& s : renderFinished) {
         s = device->createSemaphoreUnique(vk::SemaphoreCreateInfo{});
     }
 
     uint32_t currentFrame = 0;
     float time = 0;
-
-    // 流れ
-    // acquireNextImageKHRでイメージの取得
-    // swapchainImgSemaphoreにシグナル
-    // swapchainImgSemaphoreがシグナル状態になったらレンダリング開始(WaitSemaphore)
-    // レンダリングが終わったらimgRenderedSemaphoreにシグナル
-    // imgRenderedSemaphoreがシグナル状態になったらプレゼン開始
+    updateDescriptorSet(0, outputView.get());
     
-    while(!glfwWindowShouldClose(window)){
-        glfwPollEvents();
+    while(frameIndex < 3){
         
         auto waitRes = device->waitForFences(inFlight[currentFrame].get(), VK_TRUE, UINT64_MAX);
-        if(waitRes != vk::Result::eSuccess){
-            std::cerr << "can't wait for fence" << std::endl;
-            return;
-        }
-        
-        vk::ResultValue acquireImgResult = device->acquireNextImageKHR(swapchain.get(), 1'000'000'000, imageAvailable[currentFrame].get());
-        if(acquireImgResult.result == vk::Result::eSuboptimalKHR || acquireImgResult.result == vk::Result::eErrorOutOfDateKHR){
-            std::cerr << "recreate swapchain" << std::endl;
-            recreateSwapchain();
-            continue;
-        }
-        if(acquireImgResult.result != vk::Result::eSuccess){
-            std::cerr << "can't get next image" << std::endl;
-            return;
-        }
-        uint32_t imgIndex = acquireImgResult.value;
+        device->resetFences(inFlight[0].get());
 
-        if(imagesInFlight[imgIndex] != VK_NULL_HANDLE){
-            waitRes = device->waitForFences(imagesInFlight[imgIndex], VK_TRUE, UINT64_MAX);
-            if(waitRes != vk::Result::eSuccess){
-                std::cerr << "can't wait for fence" << std::endl;
-                return;
-            }
-        }
-
-        imagesInFlight[imgIndex] = inFlight[currentFrame].get();
-
-        device->resetFences(inFlight[currentFrame].get());
-
-        updateDescriptorSet(imgIndex, *swapchainImageViews[imgIndex]);
-
-        auto& cmdBuf = cmdBufs[currentFrame];
+        auto& cmdBuf = cmdBufs[0];
         cmdBuf->reset();
 
         vk::CommandBufferBeginInfo cmdBeginInfo{};
@@ -88,16 +55,24 @@ void drawCall(){
         range.baseArrayLayer = 0; range.layerCount = 1;
 
         vk::ImageMemoryBarrier toGeneral{};
-        toGeneral.oldLayout = vk::ImageLayout::eUndefined;
+        toGeneral.oldLayout  = (frameIndex == 0)
+                        ? vk::ImageLayout::eUndefined
+                        : vk::ImageLayout::eTransferSrcOptimal;
         toGeneral.newLayout = vk::ImageLayout::eGeneral;
-        toGeneral.srcAccessMask = {};
+        toGeneral.srcAccessMask = (frameIndex == 0)
+                        ? vk::AccessFlags{}
+                        : vk::AccessFlagBits::eTransferRead;
         toGeneral.dstAccessMask = vk::AccessFlagBits::eShaderWrite | vk::AccessFlagBits::eShaderRead;
-        toGeneral.image = swapchainImages[imgIndex];
+        toGeneral.image = outputImage.get();
         toGeneral.subresourceRange = range;
 
+        vk::PipelineStageFlags srcStage =
+            (frameIndex == 0) ? vk::PipelineStageFlagBits::eTopOfPipe
+                            : vk::PipelineStageFlagBits::eTransfer;   // ← ここ重要
+        vk::PipelineStageFlags dstStage = vk::PipelineStageFlagBits::eRayTracingShaderKHR;
+
         cmdBuf->pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eRayTracingShaderKHR,
+            srcStage, dstStage,
             {}, nullptr, nullptr, toGeneral);
 
         vk::ClearValue clearVal[1];
@@ -107,7 +82,7 @@ void drawCall(){
         clearVal[0].color.float32[3] = 1.0f;
 
         cmdBuf->bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, pipeline.get());
-        cmdBuf->bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, pipelineLayout.get(), 0, {descSets[imgIndex].get()}, {});
+        cmdBuf->bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, pipelineLayout.get(), 0, {descSets[0].get()}, {});
         cmdBuf->traceRaysKHR(
             raygenRegion,
             missRegion,
@@ -115,20 +90,50 @@ void drawCall(){
             {},
             width, height, 1
         );
-
-        // trace 後：GENERAL → PRESENT
-        vk::ImageMemoryBarrier toPresent{};
-        toPresent.oldLayout = vk::ImageLayout::eGeneral;
-        toPresent.newLayout = vk::ImageLayout::ePresentSrcKHR;
-        toPresent.srcAccessMask = vk::AccessFlagBits::eShaderWrite;
-        toPresent.dstAccessMask = {};
-        toPresent.image = swapchainImages[imgIndex];
-        toPresent.subresourceRange = range;
+        
+        vk::ImageMemoryBarrier toCopy{};
+        toCopy.oldLayout = vk::ImageLayout::eGeneral;
+        toCopy.newLayout = vk::ImageLayout::eTransferSrcOptimal;
+        toCopy.srcAccessMask = vk::AccessFlagBits::eShaderWrite;
+        toCopy.dstAccessMask = vk::AccessFlagBits::eTransferRead;
+        toCopy.image = outputImage.get();
+        toCopy.subresourceRange = range;
 
         cmdBuf->pipelineBarrier(
             vk::PipelineStageFlagBits::eRayTracingShaderKHR,
-            vk::PipelineStageFlagBits::eBottomOfPipe,
-            {}, nullptr, nullptr, toPresent);
+            vk::PipelineStageFlagBits::eTransfer,
+            {}, nullptr, nullptr, toCopy);
+
+        vk::BufferImageCopy copy{};
+        copy.bufferOffset = 0;              // 先頭
+        copy.bufferRowLength = 0;           // 0なら密詰め
+        copy.bufferImageHeight = 0;         // 0なら密詰め
+        copy.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        copy.imageSubresource.mipLevel = 0;
+        copy.imageSubresource.baseArrayLayer = 0;
+        copy.imageSubresource.layerCount = 1;
+        copy.setImageOffset(vk::Offset3D{0, 0, 0});
+        copy.setImageExtent({uint32_t(width), uint32_t{height}, 1});
+
+        cmdBuf->copyImageToBuffer(
+            outputImage.get(),
+            vk::ImageLayout::eTransferSrcOptimal,
+            outputBuffer.buffer.get(),
+            { copy }
+        );
+
+        vk::BufferMemoryBarrier bufBarrier{};
+        bufBarrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        bufBarrier.dstAccessMask = vk::AccessFlagBits::eHostRead;
+        bufBarrier.buffer = outputBuffer.buffer.get();
+        bufBarrier.offset = 0;
+        bufBarrier.size = VK_WHOLE_SIZE;
+
+        cmdBuf->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eHost,
+            {}, nullptr, bufBarrier, nullptr
+        );
 
         cmdBuf->end();
 
@@ -138,36 +143,23 @@ void drawCall(){
         submitInfo.setPCommandBuffers(submitCmdBuf);
 
         vk::PipelineStageFlags renderwaitStages[] = {vk::PipelineStageFlagBits::eRayTracingShaderKHR};
-        submitInfo.setWaitSemaphoreCount(1);
-        submitInfo.setWaitSemaphores(imageAvailable[currentFrame].get());
         submitInfo.setPWaitDstStageMask(renderwaitStages);
-
-        submitInfo.setSignalSemaphoreCount(1);
-        submitInfo.setPSignalSemaphores(&renderFinished[imgIndex].get());
         
-        queue.submit({submitInfo}, inFlight[currentFrame].get());
+        queue.submit({submitInfo}, inFlight[0].get()); 
 
-        vk::PresentInfoKHR presentInfo{};
-        auto presentSwapchains = {swapchain.get()};
+        auto fenceToWait = inFlight[0].get();
 
-        presentInfo.setSwapchainCount(presentSwapchains.size());
-        presentInfo.setPSwapchains(presentSwapchains.begin());
-        presentInfo.setImageIndices(imgIndex);
+        device->waitForFences(fenceToWait, VK_TRUE, UINT64_MAX);
+        size_t size = size_t(width) * size_t(height) * 4;
+        void* mapped = device->mapMemory(outputBuffer.memory.get(), 0, size);
+        char filename[256];
+        std::snprintf(filename, sizeof(filename), "%3u.png", frameIndex);
+        stbi_write_png(filename, width, height, 4, mapped, int(width * 4));
+        device->unmapMemory(outputBuffer.memory.get());
 
-        presentInfo.setWaitSemaphoreCount(1);
-        presentInfo.setPWaitSemaphores(&renderFinished[imgIndex].get());
-
-        auto res = queue.presentKHR(presentInfo);
-
+        frameIndex++;
         currentFrame = (currentFrame + 1) % MAX_FRAMES;
-        if(res == vk::Result::eErrorOutOfDateKHR || res == vk::Result::eSuboptimalKHR){
-            // recreateSwapchain();
-            // continue;
-        }else if(res != vk::Result::eSuccess){
-            throw std::runtime_error("presentKHR failed");
-        }
     }
     queue.waitIdle();
-    glfwTerminate();
     return;
 }

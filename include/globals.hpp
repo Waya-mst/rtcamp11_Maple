@@ -36,7 +36,6 @@ extern SceneUBO scene;
 extern std::vector<Vertex> vertices;
 extern std::vector<uint32_t> indices;
 
-extern GLFWwindow* window;
 extern std::vector<const char*> extensions;
 
 extern vk::UniqueImage image;
@@ -76,9 +75,16 @@ extern std::vector<vk::RayTracingShaderGroupCreateInfoKHR> shaderGroups;
 struct Buffer;
 struct AccelStruct;
 
+extern vk::UniqueImage outputImage;
+extern vk::UniqueDeviceMemory outputMemory;
+extern vk::UniqueImageView outputView;
+
 extern Buffer vertexBuffer;
 extern Buffer indexBuffer;
 extern Buffer sceneBuffer;
+
+extern Buffer outputBuffer;
+
 extern std::vector<Buffer> textureBuffers;
 extern vk::UniqueImage textureImage;
 extern vk::UniqueDeviceMemory textureMemory;

@@ -1,5 +1,4 @@
 #include "../include/globals.hpp"
-#include "../include/window.hpp"
 #include "../include/vk_setup.hpp"
 #include "../include/uniform.hpp"
 #include "../include/descriptors.hpp"
@@ -7,14 +6,14 @@
 #include "../include/geometry.hpp"
 #include "../include/shaders.hpp"
 #include "../include/render.hpp"
+#include "../include/output.hpp"
 #include <iostream>
 
 int main(){
-    SetupGLFW();
-    SetupVulkan(extensions);
-    recreateSwapchain();
+    SetupVulkan();
+    createOutputBuffer();
     createUniformBuffer();
-    createDescriptor(swapchainImages.size());
+    createDescriptor(1);
     loadModel();
     loadTexture();
     createBLAS();

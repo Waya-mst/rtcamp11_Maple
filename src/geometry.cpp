@@ -1,7 +1,6 @@
 #include "../include/globals.hpp"
 #include "../include/buffer.hpp"
 #include "../include/accel.hpp"
-#include <iostream>
 
 void createBLAS(){
 

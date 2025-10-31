@@ -3,6 +3,8 @@
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
 
+#include <iostream>
+
 
 void Buffer::init(
     vk::PhysicalDevice physicalDevice,
@@ -16,7 +18,6 @@ void Buffer::init(
     createInfo.setSize(size);
     createInfo.setUsage(usage);
     buffer = device.createBufferUnique(createInfo);
-
     vk::MemoryAllocateFlagsInfo allocateFlags{};
     if (usage & vk::BufferUsageFlagBits::eShaderDeviceAddress) {
         allocateFlags.flags = vk::MemoryAllocateFlagBits::eDeviceAddress;
