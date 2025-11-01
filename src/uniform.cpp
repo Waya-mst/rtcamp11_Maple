@@ -12,4 +12,6 @@ void createUniformBuffer(){
     sceneBuffer.init(
         physicalDevice, *device, sizeof(SceneUBO),
         bufferUsage, memoryProperty, &scene);
+
+    uniformData = device->mapMemory(sceneBuffer.memory.get(), 0, VK_WHOLE_SIZE);
 }

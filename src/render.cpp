@@ -2,6 +2,7 @@
 #include "../include/vk_setup.hpp"
 #include "../include/descriptors.hpp"
 #include <iostream>
+#include <cmath>
 #include <stb_image_write.h>
 
 void drawCall(){
@@ -37,10 +38,29 @@ void drawCall(){
     float time = 0;
     updateDescriptorSet(0, outputView.get());
     
-    while(frameIndex < 3){
+    while(frameIndex < 30){
         
         auto waitRes = device->waitForFences(inFlight[currentFrame].get(), VK_TRUE, UINT64_MAX);
         device->resetFences(inFlight[0].get());
+
+        //----------------------------------------------------------------------------
+        // update uniformbuffer
+        vk::DeviceSize bufferSize = sizeof(SceneUBO);
+
+        static std::chrono::system_clock::time_point prevTime;
+        static float up = 0.1f;
+
+        const auto nowTime = std::chrono::system_clock::now();
+        const auto delta = 0.05 * std::chrono::duration_cast<std::chrono::microseconds>(nowTime - prevTime).count();
+        scene.camPos += up * std::sin(delta);
+        memcpy(uniformData, &scene, (size_t)bufferSize);
+
+        vk::MappedMemoryRange flushMemoryRange;
+        flushMemoryRange.setMemory(sceneBuffer.memory.get());
+        flushMemoryRange.setOffset(0);
+        flushMemoryRange.setSize(VK_WHOLE_SIZE);
+        device->flushMappedMemoryRanges({flushMemoryRange});
+        //----------------------------------------------------------------------------
 
         auto& cmdBuf = cmdBufs[0];
         cmdBuf->reset();

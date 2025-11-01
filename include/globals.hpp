@@ -33,6 +33,7 @@ struct Light { alignas(16) glm::vec4 dir; alignas(16) glm::vec4 color; };
 struct SceneUBO { Light sun; alignas(16) glm::vec4 camPos; };
 
 extern SceneUBO scene;
+extern void* sceneData;
 extern std::vector<Vertex> vertices;
 extern std::vector<uint32_t> indices;
 

@@ -19,6 +19,7 @@ SceneUBO scene = {
     },
     glm::vec4(-1.0f, 2.0f, 3.0f, 1.0f)
 };
+void* sceneData;
 
 std::vector<Vertex> vertices;
 std::vector<uint32_t> indices;
