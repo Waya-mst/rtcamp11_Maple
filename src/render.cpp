@@ -3,7 +3,9 @@
 #include "../include/descriptors.hpp"
 #include <iostream>
 #include <cmath>
+#include <chrono>
 #include <stb_image_write.h>
+
 
 void drawCall(){
     int frameIndex = 0;
@@ -37,9 +39,22 @@ void drawCall(){
     uint32_t currentFrame = 0;
     float time = 0;
     updateDescriptorSet(0, outputView.get());
+
+    const auto start = std::chrono::system_clock::now();
+    const auto deadline = start + std::chrono::seconds(80);
     
-    while(frameIndex < 3){
-        
+    while(frameIndex < 30 && std::chrono::system_clock::now() < deadline){
+        {
+            auto now = std::chrono::system_clock::now();
+            auto remaining = (deadline > now) ? (deadline - now) : std::chrono::system_clock::duration::zero();
+            auto slice = std::min(std::chrono::nanoseconds(50'000'000),
+                                std::chrono::duration_cast<std::chrono::nanoseconds>(remaining));
+            uint64_t ns_timeout = static_cast<uint64_t>(slice.count());
+            auto waitRes = device->waitForFences(inFlight[currentFrame].get(), VK_TRUE, ns_timeout);
+            if(waitRes == vk::Result::eTimeout){
+                continue;
+            }
+        }
         auto waitRes = device->waitForFences(inFlight[currentFrame].get(), VK_TRUE, UINT64_MAX);
         device->resetFences(inFlight[0].get());
 
@@ -49,7 +64,7 @@ void drawCall(){
         vk::DeviceSize bufferSize = sizeof(SceneUBO);
 
         static std::chrono::system_clock::time_point prevTime;
-        static float up = 0.1f;
+        static float up = 0.5f;
 
         const auto nowTime = std::chrono::system_clock::now();
         const auto delta = 0.05 * std::chrono::duration_cast<std::chrono::microseconds>(nowTime - prevTime).count();
