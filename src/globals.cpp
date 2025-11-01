@@ -14,10 +14,10 @@ uint32_t alignUp(uint32_t size, uint32_t alignment) {
 
 SceneUBO scene = {
     {
-        glm::vec4(glm::normalize(glm::vec3(-0.5f, 1.0f, -0.3f)), 0.0f),
-        glm::vec4(0.2f, 0.2f, 0.2f, 0.0f)
+        glm::vec4(glm::normalize(glm::vec3(1.0f, -2.0f, -3.0f)), 0.0f), // Light dir
+        glm::vec4(0.2f, 0.2f, 0.2f, 0.0f) // Light color
     },
-    glm::vec4(-1.0f, 2.0f, 3.0f, 1.0f)
+    glm::vec4(-1.0f, 2.0f, 3.0f, 1.0f) // Camera Position
 };
 void* sceneData;
 

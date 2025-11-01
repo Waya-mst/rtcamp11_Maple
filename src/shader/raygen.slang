@@ -30,7 +30,11 @@ void raygenMain() {
     rayDesc.TMin = 0.001;
     rayDesc.TMax = 1e6;
 
+    // texture fetch
     TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 0, 0, 0, rayDesc, payload);
+
+    // shadow ray
+    
 
     float3 color = payload.radiance;
 

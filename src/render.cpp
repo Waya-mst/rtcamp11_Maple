@@ -38,13 +38,14 @@ void drawCall(){
     float time = 0;
     updateDescriptorSet(0, outputView.get());
     
-    while(frameIndex < 30){
+    while(frameIndex < 3){
         
         auto waitRes = device->waitForFences(inFlight[currentFrame].get(), VK_TRUE, UINT64_MAX);
         device->resetFences(inFlight[0].get());
 
         //----------------------------------------------------------------------------
         // update uniformbuffer
+
         vk::DeviceSize bufferSize = sizeof(SceneUBO);
 
         static std::chrono::system_clock::time_point prevTime;
@@ -60,6 +61,7 @@ void drawCall(){
         flushMemoryRange.setOffset(0);
         flushMemoryRange.setSize(VK_WHOLE_SIZE);
         device->flushMappedMemoryRanges({flushMemoryRange});
+
         //----------------------------------------------------------------------------
 
         auto& cmdBuf = cmdBufs[0];

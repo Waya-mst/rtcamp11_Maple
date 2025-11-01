@@ -1,6 +1,6 @@
 public static const float3 kTarget = float3(0,0,0);
 public static const float3 kUp     = float3(0,1,0);
-public static const float   kVFov  = radians(45.0);
+public static const float kVFov = radians(45.0);
 
 public float3 scene(
     float4 SunDir,
