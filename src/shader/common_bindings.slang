@@ -14,4 +14,6 @@ public struct Vertex {
 [vk::binding(3,0)] StructuredBuffer<Vertex> vertices;
 [vk::binding(4,0)] StructuredBuffer<uint>   indices;
 [vk::binding(5,0)] Texture2D<float4>        BaseColorTex;
-[vk::binding(6,0)] SamplerState             BaseSampler;
+[vk::binding(6, 0)] SamplerState BaseSampler;
+[vk::binding(7, 0)] TextureCube<float4> envMapTex;
+[vk::binding(8, 0)] SamplerState envSampler;

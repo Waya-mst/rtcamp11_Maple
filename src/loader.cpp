@@ -1,6 +1,52 @@
 #include "../include/globals.hpp"
 #include "../include/buffer.hpp"
+#include <glm/glm.hpp>
 #include <iostream>
+
+glm::vec3 CubemapDirectionFromFaceXY(int face, int x, int y, int faceSize)
+{
+    // [-1,1] に正規化したテクスチャ座標
+    float s = ( (x + 0.5f) / (float)faceSize ) * 2.0f - 1.0f;
+    float t = ( (y + 0.5f) / (float)faceSize ) * 2.0f - 1.0f;
+    t = -t;
+
+    glm::vec3 dir;
+    switch (face)
+    {
+    case 0: // +X
+        dir = glm::vec3( 1.0f,     t,    -s);
+        break;
+    case 1: // -X
+        dir = glm::vec3(-1.0f,     t,     s);
+        break;
+    case 2: // +Y
+        dir = glm::vec3(   s,  1.0f,    t);
+        break;
+    case 3: // -Y
+        dir = glm::vec3(   s, -1.0f,   -t);
+        break;
+    case 4: // +Z
+        dir = glm::vec3(   s,     t,  1.0f);
+        break;
+    case 5: // -Z
+        dir = glm::vec3(  -s,     t, -1.0f);
+        break;
+    }
+    return glm::normalize(dir);
+}
+
+glm::vec4 SampleEquirect(const glm::vec3& dir, const float* src, int w, int h)
+{
+    // dir -> (u,v)
+    float u = std::atan2(dir.z, dir.x) / (2.0f * float(M_PI)) + 0.5f;
+    float v = std::acos(std::clamp(dir.y, -1.0f, 1.0f)) / float(M_PI);
+
+    int px = std::clamp(int(u * w), 0, w - 1);
+    int py = std::clamp(int(v * h), 0, h - 1);
+
+    const float* p = src + (py * w + px) * 4;
+    return glm::vec4(p[0], p[1], p[2], p[3]);
+}
 
 void loadModel(){
     std::string err, warn;
@@ -130,13 +176,26 @@ void loadModel(){
 
 void loadTexture(){
     int imgWidth, imgHeight, imgCh;
+    int envWidth, envHeight, envCh;
+    uint32_t faceSize = 2048;
+    size_t   facePixels = (size_t)faceSize * (size_t)faceSize;
+    size_t   faceBytes  = facePixels * 4 * sizeof(float);   // RGBA32F
+    size_t   totalBytes = faceBytes * 6;
+
     const std::string texturePath = "./resource/texture/wood.jpg";
+    const std::string envMapPath = "./resource/envmap/env.hdr";
+
     auto pImgData = stbi_load(texturePath.c_str(), &imgWidth, &imgHeight, &imgCh, STBI_rgb_alpha);
-    if(pImgData == nullptr) {
+    auto pEnvData = stbi_loadf(envMapPath.c_str(), &envWidth, &envHeight, &envCh, STBI_rgb_alpha);
+
+    if(pImgData == nullptr || pEnvData == nullptr) {
         std::cerr << "画像ファイルの読み込みに失敗しました。" << std::endl;
         return;
     }
+
     size_t imgDataSize = 4 * imgWidth * imgHeight;
+    size_t envDataSize = 4 * envWidth * envHeight * sizeof(float);
+
     textureBuffers[0].init(
         physicalDevice, *device, imgDataSize,
         vk::BufferUsageFlagBits::eTransferSrc,
@@ -155,7 +214,19 @@ void loadTexture(){
     imgCI.setSharingMode(vk::SharingMode::eExclusive);
     imgCI.setSamples(vk::SampleCountFlagBits::e1);
 
+    vk::ImageCreateInfo envCI{};
+    envCI.setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
+    envCI.setImageType(vk::ImageType::e2D);
+    envCI.setExtent({(uint32_t)faceSize, (uint32_t)faceSize, 1});
+    envCI.setMipLevels(1); envCI.setArrayLayers(6);
+    envCI.setFormat(vk::Format::eR32G32B32A32Sfloat);
+    envCI.setTiling(vk::ImageTiling::eOptimal);
+    envCI.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
+    envCI.setSharingMode(vk::SharingMode::eExclusive);
+    envCI.setSamples(vk::SampleCountFlagBits::e1);
+
     textureImage = device->createImageUnique(imgCI);
+    envTexImage = device->createImageUnique(envCI);
 
     auto memReq = device->getImageMemoryRequirements(textureImage.get());
     uint32_t memIndex = 0;
@@ -169,6 +240,19 @@ void loadTexture(){
     vk::MemoryAllocateInfo mAI{memReq.size, memIndex};
     textureMemory = device->allocateMemoryUnique(mAI);
     device->bindImageMemory(textureImage.get(), textureMemory.get(), 0);
+
+    memReq = device->getImageMemoryRequirements(envTexImage.get());
+    memIndex = 0;
+    for(uint32_t i = 0; i < physicalDevice.getMemoryProperties().memoryTypeCount; i++){
+        if((memReq.memoryTypeBits & (1 << i)) &&
+        (physicalDevice.getMemoryProperties().memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal))
+        {
+            memIndex = i; break;
+        }
+    }
+    vk::MemoryAllocateInfo envMAI{memReq.size, memIndex};
+    envTexMemory = device->allocateMemoryUnique(envMAI);
+    device->bindImageMemory(envTexImage.get(), envTexMemory.get(), 0);
 
     vk::CommandBufferAllocateInfo tmpCmdBufAllocInfo;
     tmpCmdBufAllocInfo.commandPool = commandPool.get();
@@ -217,7 +301,6 @@ void loadTexture(){
             textureImage.get(), vk::ImageLayout::eTransferDstOptimal, { imgCopyRegion });
     }
     {
-        
         vk::ImageMemoryBarrier barrior;
         barrior.oldLayout = vk::ImageLayout::eTransferDstOptimal;
         barrior.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -229,6 +312,96 @@ void loadTexture(){
         barrior.subresourceRange.levelCount = 1;
         barrior.subresourceRange.baseArrayLayer = 0;
         barrior.subresourceRange.layerCount = 1;
+        barrior.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrior.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+        tmpCmdBufs[0]->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTransfer,
+            vk::PipelineStageFlagBits::eRayTracingShaderKHR, {}, {}, {}, {barrior});
+    }
+
+    {
+        vk::ImageMemoryBarrier barrior;
+        barrior.oldLayout = vk::ImageLayout::eUndefined;
+        barrior.newLayout = vk::ImageLayout::eTransferDstOptimal;
+        barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrior.image = envTexImage.get();
+        barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        barrior.subresourceRange.baseMipLevel = 0;
+        barrior.subresourceRange.levelCount = 1;
+        barrior.subresourceRange.baseArrayLayer = 0;
+        barrior.subresourceRange.layerCount = 6;
+        barrior.srcAccessMask = {};
+        barrior.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+        tmpCmdBufs[0]->pipelineBarrier(
+            vk::PipelineStageFlagBits::eTopOfPipe,
+            vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {barrior});
+    }
+    {
+        std::vector<float> cube(6ull * facePixels * 4);
+
+        for (int face = 0; face < 6; ++face) {
+            for (int y = 0; y < faceSize; ++y) {
+                for (int x = 0; x < faceSize; ++x) {
+                    glm::vec3 dir = CubemapDirectionFromFaceXY(face, x, y, faceSize);
+                    glm::vec4 c   = SampleEquirect(dir, pEnvData, envWidth, envHeight);
+                    size_t idx = ( (size_t)face * facePixels + y * faceSize + x ) * 4;
+                    cube[idx + 0] = c.r;
+                    cube[idx + 1] = c.g;
+                    cube[idx + 2] = c.b;
+                    cube[idx + 3] = c.a;
+                }
+            }
+        }
+        envTexBuffers[0].init(
+            physicalDevice, *device,
+            totalBytes,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+            cube.data()
+        );
+
+        std::vector<vk::BufferImageCopy> copies;
+        copies.reserve(6);
+
+        for (uint32_t face = 0; face < 6; ++face)
+        {
+            vk::BufferImageCopy copy{};
+            copy.bufferOffset = faceBytes * face;
+            copy.bufferRowLength   = 0;
+            copy.bufferImageHeight = 0;
+
+            copy.imageSubresource.aspectMask     = vk::ImageAspectFlagBits::eColor;
+            copy.imageSubresource.mipLevel       = 0;
+            copy.imageSubresource.baseArrayLayer = face;
+            copy.imageSubresource.layerCount     = 1;
+
+            copy.imageOffset = vk::Offset3D{0, 0, 0};
+            copy.imageExtent = vk::Extent3D{
+                (uint32_t)faceSize,
+                (uint32_t)faceSize,
+                1
+            };
+
+            copies.push_back(copy);
+        }
+        tmpCmdBufs[0]->copyBufferToImage(
+            envTexBuffers[0].buffer.get(),
+            envTexImage.get(), vk::ImageLayout::eTransferDstOptimal, copies);
+    }
+    {
+        vk::ImageMemoryBarrier barrior;
+        barrior.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+        barrior.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrior.image = envTexImage.get();
+        barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        barrior.subresourceRange.baseMipLevel = 0;
+        barrior.subresourceRange.levelCount = 1;
+        barrior.subresourceRange.baseArrayLayer = 0;
+        barrior.subresourceRange.layerCount = 6;
         barrior.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         barrior.dstAccessMask = vk::AccessFlagBits::eShaderRead;
         tmpCmdBufs[0]->pipelineBarrier(
@@ -262,7 +435,9 @@ void loadTexture(){
     samplerCreateInfo.mipLodBias = 0.0f;
     samplerCreateInfo.minLod = 0.0f;
     samplerCreateInfo.maxLod = 0.0f;
+
     sampler = device->createSamplerUnique(samplerCreateInfo);
+    envSampler = device->createSamplerUnique(samplerCreateInfo);
 
     vk::ImageViewCreateInfo texImgViewCreateInfo;
     texImgViewCreateInfo.image = textureImage.get();
@@ -278,4 +453,20 @@ void loadTexture(){
     texImgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
     texImgViewCreateInfo.subresourceRange.layerCount = 1;
     textureImageView = device->createImageViewUnique(texImgViewCreateInfo);
+
+    vk::ImageViewCreateInfo envTexImageViewCI;
+    envTexImageViewCI.image = envTexImage.get();
+    envTexImageViewCI.viewType = vk::ImageViewType::eCube;
+    envTexImageViewCI.format = vk::Format::eR32G32B32A32Sfloat;
+    envTexImageViewCI.components.r = vk::ComponentSwizzle::eIdentity;
+    envTexImageViewCI.components.g = vk::ComponentSwizzle::eIdentity;
+    envTexImageViewCI.components.b = vk::ComponentSwizzle::eIdentity;
+    envTexImageViewCI.components.a = vk::ComponentSwizzle::eIdentity;
+    envTexImageViewCI.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    envTexImageViewCI.subresourceRange.baseMipLevel = 0;
+    envTexImageViewCI.subresourceRange.levelCount = 1;
+    envTexImageViewCI.subresourceRange.baseArrayLayer = 0;
+    envTexImageViewCI.subresourceRange.layerCount = 6;
+    envImageView = device->createImageViewUnique(envTexImageViewCI);
 }
+

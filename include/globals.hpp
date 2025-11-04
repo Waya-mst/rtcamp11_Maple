@@ -20,7 +20,9 @@
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #include <tiny_gltf.h>
 
+
 inline constexpr uint32_t MAX_FRAMES = 2;
+inline constexpr double M_PI = 3.141592653589793;
 extern const uint32_t width;
 extern const uint32_t height;
 extern bool enableValidationLayers;
@@ -79,10 +81,17 @@ extern Buffer sceneBuffer;
 extern Buffer outputBuffer;
 
 extern std::vector<Buffer> textureBuffers;
+extern std::vector<Buffer> envTexBuffers;
+
 extern vk::UniqueImage textureImage;
 extern vk::UniqueDeviceMemory textureMemory;
 extern vk::UniqueSampler sampler;
 extern vk::UniqueImageView textureImageView;
+
+extern vk::UniqueImage envTexImage;
+extern vk::UniqueDeviceMemory envTexMemory;
+extern vk::UniqueSampler envSampler;
+extern vk::UniqueImageView envImageView;
 
 extern vk::UniqueBuffer uniformBuffer;
 extern vk::UniqueDeviceMemory uniformBufferMemory;

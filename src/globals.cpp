@@ -57,6 +57,7 @@ Buffer vertexBuffer;
 Buffer indexBuffer;
 Buffer sceneBuffer;
 std::vector<Buffer> textureBuffers(1);
+std::vector<Buffer> envTexBuffers(1);
 
 Buffer outputBuffer;
 vk::UniqueImage outputImage;
@@ -69,6 +70,11 @@ vk::UniqueImage textureImage;
 vk::UniqueDeviceMemory textureMemory;
 vk::UniqueSampler sampler;
 vk::UniqueImageView textureImageView;
+
+vk::UniqueImage envTexImage;
+vk::UniqueDeviceMemory envTexMemory;
+vk::UniqueSampler envSampler;
+vk::UniqueImageView envImageView;
 
 vk::UniqueBuffer uniformBuffer;
 vk::UniqueDeviceMemory uniformBufferMemory;

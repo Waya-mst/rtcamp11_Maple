@@ -46,11 +46,12 @@ void closestHitMain(in BuiltInTriangleIntersectionAttributes attr, inout Radianc
              0xFF, 1, 0, 1, shadowRayDesc, vis);
 
     // 超シンプル Lambert
-    float NdotL = max(0.0, dot(N, normalize(-SunDir.xyz)));
-    float3 color = albedo * (0.1 + 0.9 * NdotL);
+    // float NdotL = max(0.0, dot(N, normalize(-SunDir.xyz)));
+    // float3 color = albedo * (0.1 + 0.9 * NdotL);
+    float3 color = albedo;
 
-    if (vis.occluded) {
-        color *= float3(0.5, 0.5, 0.5);
+    if (!vis.occluded) {
+        color = float3(1.0, 0.0, 1.0);
     }
     
 

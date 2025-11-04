@@ -6,8 +6,8 @@ void createDescriptor(size_t countSets){
     const uint32_t imgPerSet     = 1;
     const uint32_t uboPerSet     = 1;
     const uint32_t ssboPerSet    = 3;
-    const uint32_t texPerSet     = 1;
-    const uint32_t samplerPerset = 1;
+    const uint32_t texPerSet     = 2;
+    const uint32_t samplerPerset = 2;
 
     std::vector<vk::DescriptorPoolSize> poolSizes;
     if (asPerSet)
@@ -29,7 +29,7 @@ void createDescriptor(size_t countSets){
     createInfo.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
     descPool = device->createDescriptorPoolUnique(createInfo);
 
-    std::vector<vk::DescriptorSetLayoutBinding> bindings(7);
+    std::vector<vk::DescriptorSetLayoutBinding> bindings(9);
 
     // Acceleration Structure
     bindings[0].setBinding(0);
@@ -73,6 +73,29 @@ void createDescriptor(size_t countSets){
     bindings[6].setDescriptorCount(1);
     bindings[6].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
 
+    // env Map
+    bindings[7].setBinding(7);
+    bindings[7].setDescriptorType(vk::DescriptorType::eSampledImage);
+    bindings[7].setDescriptorCount(1);
+    bindings[7].setStageFlags(
+        vk::ShaderStageFlagBits::eRaygenKHR |
+        vk::ShaderStageFlagBits::eClosestHitKHR |
+        vk::ShaderStageFlagBits::eMissKHR |
+        vk::ShaderStageFlagBits::eAnyHitKHR
+    );
+
+    // envMap sampler
+    bindings[8].setBinding(8);
+    bindings[8].setDescriptorType(vk::DescriptorType::eSampler);
+    bindings[8].setDescriptorCount(1);
+    bindings[8].setStageFlags(
+        vk::ShaderStageFlagBits::eRaygenKHR |
+        vk::ShaderStageFlagBits::eClosestHitKHR |
+        vk::ShaderStageFlagBits::eMissKHR |
+        vk::ShaderStageFlagBits::eAnyHitKHR
+    );
+
+
     vk::DescriptorSetLayoutCreateInfo descSetLayoutCreateInfo{};
     descSetLayoutCreateInfo.setBindings(bindings);
     descSetLayout = device->createDescriptorSetLayoutUnique(descSetLayoutCreateInfo);
@@ -86,7 +109,7 @@ void createDescriptor(size_t countSets){
 }
 
 void updateDescriptorSet(uint32_t setIndex, vk::ImageView imageView){
-    std::vector<vk::WriteDescriptorSet> writes(7);
+    std::vector<vk::WriteDescriptorSet> writes(9);
 
     // [0]: For AS
     vk::WriteDescriptorSetAccelerationStructureKHR accelInfo{};
@@ -154,6 +177,25 @@ void updateDescriptorSet(uint32_t setIndex, vk::ImageView imageView){
     writes[6].setDescriptorCount(1);
     writes[6].setDescriptorType(vk::DescriptorType::eSampler);
     writes[6].setPImageInfo(samplerinfo);
+
+    // [7]: For envMap
+    vk::DescriptorImageInfo envTexImginfo[1];
+    envTexImginfo[0].setImageView(envImageView.get());
+    envTexImginfo[0].setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+    writes[7].setDstSet(*descSets[setIndex]);
+    writes[7].setDstBinding(7);
+    writes[7].setDescriptorCount(1);
+    writes[7].setDescriptorType(vk::DescriptorType::eSampledImage);
+    writes[7].setPImageInfo(envTexImginfo);
+
+    // [8]: For envMap sampler
+    vk::DescriptorImageInfo envSamplerinfo[1];
+    envSamplerinfo[0].setSampler(envSampler.get());
+    writes[8].setDstSet(*descSets[setIndex]);
+    writes[8].setDstBinding(8);
+    writes[8].setDescriptorCount(1);
+    writes[8].setDescriptorType(vk::DescriptorType::eSampler);
+    writes[8].setPImageInfo(envSamplerinfo);
 
     // Update
     device->updateDescriptorSets(writes, nullptr);
