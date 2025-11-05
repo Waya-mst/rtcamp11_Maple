@@ -15,6 +15,7 @@ int main(){
     createUniformBuffer();
     createDescriptor(1);
     loadModel();
+    loadMaterial();
     loadTexture();
     createBLAS();
     createTLAS();

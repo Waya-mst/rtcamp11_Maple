@@ -23,6 +23,8 @@ void* sceneData;
 
 std::vector<Vertex> vertices;
 std::vector<uint32_t> indices;
+std::vector<Material> materials;
+std::vector<uint32_t> primitiveMaterialIndices;
 
 GLFWwindow* window;
 std::vector<const char*> extensions;
@@ -55,6 +57,8 @@ std::vector<vk::RayTracingShaderGroupCreateInfoKHR> shaderGroups;
 
 Buffer vertexBuffer;
 Buffer indexBuffer;
+Buffer materialBuffer;
+Buffer materialIndexBuffer;
 Buffer sceneBuffer;
 std::vector<Buffer> textureBuffers(1);
 std::vector<Buffer> envTexBuffers(1);

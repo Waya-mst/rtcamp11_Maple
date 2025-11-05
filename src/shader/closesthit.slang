@@ -48,13 +48,17 @@ void closestHitMain(in BuiltInTriangleIntersectionAttributes attr, inout Radianc
     // 超シンプル Lambert
     // float NdotL = max(0.0, dot(N, normalize(-SunDir.xyz)));
     // float3 color = albedo * (0.1 + 0.9 * NdotL);
-    float3 color = albedo;
+    // float3 color = albedo;
 
-    if (!vis.occluded) {
-        color = float3(1.0, 0.0, 1.0);
-    }
-    
+    // if (!vis.occluded) {
+    //     color = float3(1.0, 0.0, 1.0);
+    // }
 
-    //payload.radiance = 0.5 * N + 0.5;
+    // payload.radiance = 0.5 * N + 0.5;
+    // float3 color = float3(metallicFactor, roughnessFactor, ior / 2);
+    uint matId = primitiveMat[prim];
+    Material m = materials[matId];
+
+    float3 color = float3(m.baseColorFactor.r, m.baseColorFactor.g, m.baseColorFactor.b);
     payload.radiance = color;
 }

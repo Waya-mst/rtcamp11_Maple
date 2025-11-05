@@ -5,7 +5,7 @@ void createDescriptor(size_t countSets){
     const uint32_t asPerSet      = 1;
     const uint32_t imgPerSet     = 1;
     const uint32_t uboPerSet     = 1;
-    const uint32_t ssboPerSet    = 3;
+    const uint32_t ssboPerSet    = 4;
     const uint32_t texPerSet     = 2;
     const uint32_t samplerPerset = 2;
 
@@ -29,7 +29,7 @@ void createDescriptor(size_t countSets){
     createInfo.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet);
     descPool = device->createDescriptorPoolUnique(createInfo);
 
-    std::vector<vk::DescriptorSetLayoutBinding> bindings(9);
+    std::vector<vk::DescriptorSetLayoutBinding> bindings(11);
 
     // Acceleration Structure
     bindings[0].setBinding(0);
@@ -61,23 +61,35 @@ void createDescriptor(size_t countSets){
     bindings[4].setDescriptorCount(1);
     bindings[4].setStageFlags(vk::ShaderStageFlagBits::eClosestHitKHR);
 
-    // sampled Image
+    // material buffer
     bindings[5].setBinding(5);
-    bindings[5].setDescriptorType(vk::DescriptorType::eSampledImage);
+    bindings[5].setDescriptorType(vk::DescriptorType::eStorageBuffer);
     bindings[5].setDescriptorCount(1);
-    bindings[5].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
+    bindings[5].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR | vk::ShaderStageFlagBits::eMissKHR);
 
-    // sampler
+    // material index buffer
     bindings[6].setBinding(6);
-    bindings[6].setDescriptorType(vk::DescriptorType::eSampler);
+    bindings[6].setDescriptorType(vk::DescriptorType::eStorageBuffer);
     bindings[6].setDescriptorCount(1);
-    bindings[6].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
+    bindings[6].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR | vk::ShaderStageFlagBits::eMissKHR);
 
-    // env Map
+    // sampled Image
     bindings[7].setBinding(7);
     bindings[7].setDescriptorType(vk::DescriptorType::eSampledImage);
     bindings[7].setDescriptorCount(1);
-    bindings[7].setStageFlags(
+    bindings[7].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
+
+    // sampler
+    bindings[8].setBinding(8);
+    bindings[8].setDescriptorType(vk::DescriptorType::eSampler);
+    bindings[8].setDescriptorCount(1);
+    bindings[8].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
+
+    // env Map
+    bindings[9].setBinding(9);
+    bindings[9].setDescriptorType(vk::DescriptorType::eSampledImage);
+    bindings[9].setDescriptorCount(1);
+    bindings[9].setStageFlags(
         vk::ShaderStageFlagBits::eRaygenKHR |
         vk::ShaderStageFlagBits::eClosestHitKHR |
         vk::ShaderStageFlagBits::eMissKHR |
@@ -85,10 +97,10 @@ void createDescriptor(size_t countSets){
     );
 
     // envMap sampler
-    bindings[8].setBinding(8);
-    bindings[8].setDescriptorType(vk::DescriptorType::eSampler);
-    bindings[8].setDescriptorCount(1);
-    bindings[8].setStageFlags(
+    bindings[10].setBinding(10);
+    bindings[10].setDescriptorType(vk::DescriptorType::eSampler);
+    bindings[10].setDescriptorCount(1);
+    bindings[10].setStageFlags(
         vk::ShaderStageFlagBits::eRaygenKHR |
         vk::ShaderStageFlagBits::eClosestHitKHR |
         vk::ShaderStageFlagBits::eMissKHR |
@@ -109,7 +121,7 @@ void createDescriptor(size_t countSets){
 }
 
 void updateDescriptorSet(uint32_t setIndex, vk::ImageView imageView){
-    std::vector<vk::WriteDescriptorSet> writes(9);
+    std::vector<vk::WriteDescriptorSet> writes(11);
 
     // [0]: For AS
     vk::WriteDescriptorSetAccelerationStructureKHR accelInfo{};
@@ -159,43 +171,63 @@ void updateDescriptorSet(uint32_t setIndex, vk::ImageView imageView){
     writes[4].setDescriptorType(vk::DescriptorType::eStorageBuffer);
     writes[4].setBufferInfo(idxinfo);
 
-    // [5]: For texture
+    // [5]: For materialBuffer
+    vk::DescriptorBufferInfo matBufInfo{};
+    matBufInfo.setBuffer(materialBuffer.buffer.get());
+    matBufInfo.setOffset(0);
+    matBufInfo.setRange(sizeof(Material) * materials.size());
+    writes[5].setDstSet(*descSets[setIndex]);
+    writes[5].setDstBinding(5);
+    writes[5].setDescriptorType(vk::DescriptorType::eStorageBuffer);
+    writes[5].setBufferInfo(matBufInfo);
+
+    // [6]: For material index buffer
+    vk::DescriptorBufferInfo matIdxInfo{};
+    matIdxInfo.setBuffer(materialIndexBuffer.buffer.get());
+    matIdxInfo.setOffset(0);
+    matIdxInfo.setRange(sizeof(uint32_t) * primitiveMaterialIndices.size());
+    writes[6].setDstSet(*descSets[setIndex]);
+    writes[6].setDstBinding(6);
+    writes[6].setDescriptorType(vk::DescriptorType::eStorageBuffer);
+    writes[6].setBufferInfo(matIdxInfo);
+
+    // [7]: For texture
     vk::DescriptorImageInfo texImginfo[1];
     texImginfo[0].setImageView(textureImageView.get());
     texImginfo[0].setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-    writes[5].setDstSet(*descSets[setIndex]);
-    writes[5].setDstBinding(5);
-    writes[5].setDescriptorCount(1);
-    writes[5].setDescriptorType(vk::DescriptorType::eSampledImage);
-    writes[5].setPImageInfo(texImginfo);
-
-    // [6]: For sampler
-    vk::DescriptorImageInfo samplerinfo[1];
-    samplerinfo[0].setSampler(sampler.get());
-    writes[6].setDstSet(*descSets[setIndex]);
-    writes[6].setDstBinding(6);
-    writes[6].setDescriptorCount(1);
-    writes[6].setDescriptorType(vk::DescriptorType::eSampler);
-    writes[6].setPImageInfo(samplerinfo);
-
-    // [7]: For envMap
-    vk::DescriptorImageInfo envTexImginfo[1];
-    envTexImginfo[0].setImageView(envImageView.get());
-    envTexImginfo[0].setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
     writes[7].setDstSet(*descSets[setIndex]);
     writes[7].setDstBinding(7);
     writes[7].setDescriptorCount(1);
     writes[7].setDescriptorType(vk::DescriptorType::eSampledImage);
-    writes[7].setPImageInfo(envTexImginfo);
+    writes[7].setPImageInfo(texImginfo);
 
-    // [8]: For envMap sampler
-    vk::DescriptorImageInfo envSamplerinfo[1];
-    envSamplerinfo[0].setSampler(envSampler.get());
+    // [8]: For sampler
+    vk::DescriptorImageInfo samplerinfo[1];
+    samplerinfo[0].setSampler(sampler.get());
     writes[8].setDstSet(*descSets[setIndex]);
     writes[8].setDstBinding(8);
     writes[8].setDescriptorCount(1);
     writes[8].setDescriptorType(vk::DescriptorType::eSampler);
-    writes[8].setPImageInfo(envSamplerinfo);
+    writes[8].setPImageInfo(samplerinfo);
+
+    // [9]: For envMap
+    vk::DescriptorImageInfo envTexImginfo[1];
+    envTexImginfo[0].setImageView(envImageView.get());
+    envTexImginfo[0].setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+    writes[9].setDstSet(*descSets[setIndex]);
+    writes[9].setDstBinding(9);
+    writes[9].setDescriptorCount(1);
+    writes[9].setDescriptorType(vk::DescriptorType::eSampledImage);
+    writes[9].setPImageInfo(envTexImginfo);
+
+    // [10]: For envMap sampler
+    vk::DescriptorImageInfo envSamplerinfo[1];
+    envSamplerinfo[0].setSampler(envSampler.get());
+    writes[10].setDstSet(*descSets[setIndex]);
+    writes[10].setDstBinding(10);
+    writes[10].setDescriptorCount(1);
+    writes[10].setDescriptorType(vk::DescriptorType::eSampler);
+    writes[10].setPImageInfo(envSamplerinfo);
 
     // Update
     device->updateDescriptorSets(writes, nullptr);

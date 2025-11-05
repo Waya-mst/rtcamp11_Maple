@@ -3,6 +3,10 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
+const std::string texturePath = "./resource/texture/wood.jpg";
+const std::string envMapPath = "./resource/envmap/env.hdr";
+const std::string gltfPath = "./resource/mesh/test.gltf";
+
 glm::vec3 CubemapDirectionFromFaceXY(int face, int x, int y, int faceSize)
 {
     // [-1,1] に正規化したテクスチャ座標
@@ -50,7 +54,6 @@ glm::vec4 SampleEquirect(const glm::vec3& dir, const float* src, int w, int h)
 
 void loadModel(){
     std::string err, warn;
-    const std::string gltfPath = "./resource/mesh/test.gltf";
 
     bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, gltfPath);
     if(!warn.empty()) std::cerr << "[tinygltf warn] " << warn << "\n";
@@ -71,6 +74,8 @@ void loadModel(){
     for(int gltfMeshIndex = 0; gltfMeshIndex < model.meshes.size(); gltfMeshIndex++){
         auto& gltfMesh = model.meshes.at(gltfMeshIndex);
         for(const auto& gltfPrimitive : gltfMesh.primitives){
+            uint32_t vertexOffset = static_cast<uint32_t>(vertices.size());
+
             // Vertex Attributes
             auto& attributes = gltfPrimitive.attributes;
 
@@ -95,8 +100,6 @@ void loadModel(){
                 texCoordBufferView = &model.bufferViews[texCoordAccessor->bufferView];
             }
 
-            vertices.resize(positionAccessor->count);
-
             const auto getByteStride = [&](tinygltf::BufferView* bufferView, size_t defaultSize)->size_t{
                 if(bufferView->byteStride > 0){
                     return bufferView->byteStride;
@@ -105,11 +108,12 @@ void loadModel(){
             };
 
             for(size_t i = 0; i < positionAccessor->count; i++){
+                Vertex v{};
                 {
                     size_t byteStride = getByteStride(positionBufferView, sizeof(glm::vec3));
                     size_t positionByteOffset = positionAccessor->byteOffset +
                                                 positionBufferView->byteOffset + i * byteStride;
-                    vertices[i].pos = *reinterpret_cast<const glm::vec3*>(
+                    v.pos = *reinterpret_cast<const glm::vec3*>(
                         &(model.buffers[positionBufferView->buffer].data[positionByteOffset]));
                 }
 
@@ -117,16 +121,38 @@ void loadModel(){
                     size_t byteStride = getByteStride(normalBufferView, sizeof(glm::vec3));
                     size_t normalByteOffset = normalAccessor->byteOffset +
                                                 normalBufferView->byteOffset + i * byteStride;
-                    vertices[i].normal = *reinterpret_cast<const glm::vec3*>(
+                    v.normal = *reinterpret_cast<const glm::vec3*>(
                         &(model.buffers[normalBufferView->buffer].data[normalByteOffset]));
                 }
                 if(texCoordBufferView){
                     size_t byteStride = getByteStride(texCoordBufferView, sizeof(glm::vec2));
                     size_t texCoordByteOffset = texCoordAccessor->byteOffset +
                                                 texCoordBufferView->byteOffset + i * byteStride;
-                    vertices[i].texCoord = *reinterpret_cast<const glm::vec2*>(
+                    v.texCoord = *reinterpret_cast<const glm::vec2*>(
                         &(model.buffers[texCoordBufferView->buffer].data[texCoordByteOffset]));
                 }
+                vertices.push_back(v);
+            }
+
+            {
+                auto& accessor   = model.accessors[gltfPrimitive.indices];
+                size_t indexCount = accessor.count;
+                size_t triCount   = indexCount / 3;
+
+                uint32_t matId = (gltfPrimitive.material >= 0) ? (uint32_t)gltfPrimitive.material : 0u;
+
+                for(size_t t = 0; t < triCount; ++t){
+                    primitiveMaterialIndices.push_back(matId);
+                }
+
+                vk::BufferUsageFlags bufferUsage{vk::BufferUsageFlagBits::eStorageBuffer};
+                vk::MemoryPropertyFlags memoryProperty{
+                    vk::MemoryPropertyFlagBits::eHostVisible |
+                    vk::MemoryPropertyFlagBits::eHostCoherent};
+
+                materialIndexBuffer.init(
+                    physicalDevice, *device, sizeof(uint32_t) * primitiveMaterialIndices.size(),
+                    bufferUsage, memoryProperty, primitiveMaterialIndices.data());
             }
 
             {
@@ -142,7 +168,7 @@ void loadModel(){
                         std::memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
                                     size);
                         for (size_t i = 0; i < indicesCount; i++) {
-                            indices.push_back(buf[i]);
+                            indices.push_back(buf[i] + vertexOffset);
                         }
                         break;
                     }
@@ -152,7 +178,7 @@ void loadModel(){
                         std::memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
                                     size);
                         for (size_t i = 0; i < indicesCount; i++) {
-                            indices.push_back(buf[i]);
+                            indices.push_back(buf[i] + vertexOffset);
                         }
                         break;
                     }
@@ -162,7 +188,7 @@ void loadModel(){
                         std::memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset],
                                     size);
                         for (size_t i = 0; i < indicesCount; i++) {
-                            indices.push_back(buf[i]);
+                            indices.push_back(buf[i] + vertexOffset);
                         }
                         break;
                     }
@@ -181,9 +207,6 @@ void loadTexture(){
     size_t   facePixels = (size_t)faceSize * (size_t)faceSize;
     size_t   faceBytes  = facePixels * 4 * sizeof(float);   // RGBA32F
     size_t   totalBytes = faceBytes * 6;
-
-    const std::string texturePath = "./resource/texture/wood.jpg";
-    const std::string envMapPath = "./resource/envmap/env.hdr";
 
     auto pImgData = stbi_load(texturePath.c_str(), &imgWidth, &imgHeight, &imgCh, STBI_rgb_alpha);
     auto pEnvData = stbi_loadf(envMapPath.c_str(), &envWidth, &envHeight, &envCh, STBI_rgb_alpha);
@@ -470,3 +493,77 @@ void loadTexture(){
     envImageView = device->createImageViewUnique(envTexImageViewCI);
 }
 
+void loadMaterial(){
+    materials.clear();
+    materials.reserve(model.materials.size());
+
+    for(const auto& mat : model.materials){
+        Material m;
+        const auto& pbr = mat.pbrMetallicRoughness;
+
+        if (pbr.baseColorFactor.size() == 4) {
+            m.baseColorFactor = glm::vec4(
+                (float)pbr.baseColorFactor[0],
+                (float)pbr.baseColorFactor[1],
+                (float)pbr.baseColorFactor[2],
+                (float)pbr.baseColorFactor[3]
+            );
+        } else {
+            m.baseColorFactor = glm::vec4(1.0f);
+        }
+
+        m.metallicFactor  = (float)pbr.metallicFactor;
+        m.roughnessFactor = (float)pbr.roughnessFactor;
+
+        if (pbr.baseColorTexture.index >= 0) {
+            m.baseColorTextureIndex = pbr.baseColorTexture.index;
+        }
+
+        if (pbr.metallicRoughnessTexture.index >= 0) {
+            m.matallicRoughnessTextureIndex = pbr.metallicRoughnessTexture.index;
+        }
+
+        if (mat.normalTexture.index >= 0) {
+            m.normalTextureIndex = mat.normalTexture.index;
+        }
+
+        if (mat.occlusionTexture.index >= 0) {
+            m.occulusionTextureIndex = mat.occlusionTexture.index;
+        }
+
+        if (mat.emissiveTexture.index >= 0) {
+            m.emissiveTextureIndex = mat.emissiveTexture.index;
+        }
+
+        if (mat.emissiveFactor.size() == 3) {
+            m.emissiveFactor = glm::vec4(
+                (float)mat.emissiveFactor[0],
+                (float)mat.emissiveFactor[1],
+                (float)mat.emissiveFactor[2],
+                1.0f
+            );
+        } else {
+            m.emissiveFactor = glm::vec4(0.0f);
+        }
+
+        m.ior = 1.5f;
+        auto extIor = mat.extensions.find("KHR_materials_ior");
+        if (extIor != mat.extensions.end()) {
+            const tinygltf::Value& ext = extIor->second;
+            if (ext.Has("ior")) {
+                m.ior = (float)ext.Get("ior").GetNumberAsDouble();
+            }
+        }
+
+        materials.push_back(m);
+    }
+
+    vk::BufferUsageFlags bufferUsage{vk::BufferUsageFlagBits::eStorageBuffer};
+    vk::MemoryPropertyFlags memoryProperty{
+        vk::MemoryPropertyFlagBits::eHostVisible |
+        vk::MemoryPropertyFlagBits::eHostCoherent};
+
+    materialBuffer.init(
+        physicalDevice, *device, sizeof(Material) * materials.size(),
+        bufferUsage, memoryProperty, materials.data());
+}

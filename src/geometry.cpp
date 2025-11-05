@@ -1,9 +1,9 @@
 #include "../include/globals.hpp"
 #include "../include/buffer.hpp"
 #include "../include/accel.hpp"
+#include <iostream>
 
 void createBLAS(){
-
     vk::BufferUsageFlags bufferUsage{
         vk::BufferUsageFlagBits::eAccelerationStructureBuildInputReadOnlyKHR |
         vk::BufferUsageFlagBits::eShaderDeviceAddress |
@@ -22,29 +22,28 @@ void createBLAS(){
 
     vk::BufferDeviceAddressInfoKHR vertAddress{};
     vk::BufferDeviceAddressInfoKHR indexAddress{};
+    
     vertAddress.setBuffer(vertexBuffer.buffer.get());
     indexAddress.setBuffer(indexBuffer.buffer.get());
-    
+
     vk::AccelerationStructureGeometryTrianglesDataKHR triangles{};
     triangles.setVertexFormat(vk::Format::eR32G32B32Sfloat);
-    
     triangles.setVertexData(device->getBufferAddressKHR(&vertAddress));
     triangles.setVertexStride(sizeof(Vertex));
     triangles.setMaxVertex(static_cast<uint32_t>(vertices.size()));
     triangles.setIndexType(vk::IndexType::eUint32);
     triangles.setIndexData(device->getBufferAddressKHR(&indexAddress));
-    
+
     vk::AccelerationStructureGeometryKHR geometry{};
     geometry.setGeometryType(vk::GeometryTypeKHR::eTriangles);
     geometry.setGeometry({triangles});
     geometry.setFlags(vk::GeometryFlagBitsKHR::eOpaque);
-    
+
     uint32_t primitiveCount = static_cast<uint32_t>(indices.size() / 3);
     bottomAccel.init(
         physicalDevice, *device, commandPool.get(), queue,
         vk::AccelerationStructureTypeKHR::eBottomLevel,
         geometry, primitiveCount);
-    
 }
 
 void createTLAS(){

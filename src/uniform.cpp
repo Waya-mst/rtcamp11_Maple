@@ -2,7 +2,6 @@
 #include "../include/buffer.hpp"
 
 void createUniformBuffer(){
-    vk::DeviceSize bufferSize = sizeof(scene);
     
     vk::BufferUsageFlags bufferUsage{vk::BufferUsageFlagBits::eUniformBuffer};
     vk::MemoryPropertyFlags memoryProperty{

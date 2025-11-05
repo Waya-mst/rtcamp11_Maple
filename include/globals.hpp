@@ -30,14 +30,37 @@ extern bool enableValidationLayers;
 uint32_t alignUp(uint32_t size, uint32_t alignment);
 
 struct Mat4x4{ float v[4][4]; };
-struct Vertex{ alignas(16) glm::vec3 pos; alignas(16) glm::vec3 normal; alignas(16) glm::vec2 texCoord; };
-struct Light { alignas(16) glm::vec4 dir; alignas(16) glm::vec4 color; };
+struct Vertex{
+    alignas(16) glm::vec3 pos;
+    alignas(16) glm::vec3 normal;
+    alignas(16) glm::vec2 texCoord;
+};
+struct Material{
+    int baseColorTextureIndex = -1;
+    int matallicRoughnessTextureIndex = -1;
+    int normalTextureIndex = -1;
+    int occulusionTextureIndex = -1;
+    int emissiveTextureIndex = -1;
+
+    float metallicFactor = 1.0f;
+    float roughnessFactor = 1.0f;
+    float ior = 1.5f;
+
+    alignas(16) glm::vec4 baseColorFactor = glm::vec4(1.0f);
+    alignas(16) glm::vec4 emissiveFactor = glm::vec4(1.0f);
+};
+struct Light {
+    alignas(16) glm::vec4 dir;
+    alignas(16) glm::vec4 color;
+};
 struct SceneUBO { Light sun; alignas(16) glm::vec4 camPos; };
 
 extern SceneUBO scene;
 extern void* sceneData;
 extern std::vector<Vertex> vertices;
 extern std::vector<uint32_t> indices;
+extern std::vector<Material> materials;
+extern std::vector<uint32_t> primitiveMaterialIndices;
 
 extern std::vector<const char*> extensions;
 
@@ -76,6 +99,8 @@ extern vk::UniqueImageView outputView;
 
 extern Buffer vertexBuffer;
 extern Buffer indexBuffer;
+extern Buffer materialBuffer;
+extern Buffer materialIndexBuffer;
 extern Buffer sceneBuffer;
 
 extern Buffer outputBuffer;
