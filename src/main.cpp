@@ -13,10 +13,10 @@ int main(){
     SetupVulkan();
     createOutputBuffer();
     createUniformBuffer();
-    createDescriptor(1);
     loadModel();
     loadMaterial();
     loadTexture();
+    createDescriptor(1);
     createBLAS();
     createTLAS();
     prepareShaders();

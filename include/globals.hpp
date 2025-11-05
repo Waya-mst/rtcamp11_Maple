@@ -108,10 +108,10 @@ extern Buffer outputBuffer;
 extern std::vector<Buffer> textureBuffers;
 extern std::vector<Buffer> envTexBuffers;
 
-extern vk::UniqueImage textureImage;
-extern vk::UniqueDeviceMemory textureMemory;
+extern std::vector<vk::UniqueImage> textureImages;
+extern std::vector<vk::UniqueDeviceMemory> textureMemorys;
 extern vk::UniqueSampler sampler;
-extern vk::UniqueImageView textureImageView;
+extern std::vector<vk::UniqueImageView> textureImageViews;
 
 extern vk::UniqueImage envTexImage;
 extern vk::UniqueDeviceMemory envTexMemory;

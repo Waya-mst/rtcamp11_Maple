@@ -60,7 +60,7 @@ Buffer indexBuffer;
 Buffer materialBuffer;
 Buffer materialIndexBuffer;
 Buffer sceneBuffer;
-std::vector<Buffer> textureBuffers(1);
+std::vector<Buffer> textureBuffers;
 std::vector<Buffer> envTexBuffers(1);
 
 Buffer outputBuffer;
@@ -70,10 +70,10 @@ vk::UniqueImageView outputView;
 
 vk::UniqueImage image;
 
-vk::UniqueImage textureImage;
-vk::UniqueDeviceMemory textureMemory;
+std::vector<vk::UniqueImage> textureImages;
+std::vector<vk::UniqueDeviceMemory> textureMemorys;
 vk::UniqueSampler sampler;
-vk::UniqueImageView textureImageView;
+std::vector<vk::UniqueImageView> textureImageViews;
 
 vk::UniqueImage envTexImage;
 vk::UniqueDeviceMemory envTexMemory;

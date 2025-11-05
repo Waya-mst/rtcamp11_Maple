@@ -111,6 +111,7 @@ void SetupVulkan(){
     vk::PhysicalDeviceRayTracingPipelineFeaturesKHR rtpFeat{};
     rtpFeat.rayTracingPipeline = VK_TRUE;
 
+    v12.runtimeDescriptorArray = VK_TRUE;
     v12.pNext   = &asFeat;
     asFeat.pNext= &rtpFeat;
     feats2.pNext= &v12;

@@ -23,26 +23,19 @@
 			"doubleSided":true,
 			"name":"\u30de\u30c6\u30ea\u30a2\u30eb",
 			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.11736088991165161,
-					0.00762242591008544,
-					0.006834918633103371,
-					1
-				],
-				"metallicFactor":0.6072507500648499,
-				"roughnessFactor":0.771903395652771
+				"baseColorTexture":{
+					"index":0
+				},
+				"metallicFactor":0
 			}
 		},
 		{
 			"doubleSided":true,
 			"name":"\u30de\u30c6\u30ea\u30a2\u30eb.001",
 			"pbrMetallicRoughness":{
-				"baseColorFactor":[
-					0.800000011920929,
-					0.800000011920929,
-					0.800000011920929,
-					1
-				],
+				"baseColorTexture":{
+					"index":1
+				},
 				"metallicFactor":0,
 				"roughnessFactor":0.5
 			}
@@ -71,6 +64,28 @@
 					"material":1
 				}
 			]
+		}
+	],
+	"textures":[
+		{
+			"sampler":0,
+			"source":0
+		},
+		{
+			"sampler":0,
+			"source":1
+		}
+	],
+	"images":[
+		{
+			"mimeType":"image/jpeg",
+			"name":"wood",
+			"uri":"wood.jpg"
+		},
+		{
+			"mimeType":"image/png",
+			"name":"test",
+			"uri":"test.png"
 		}
 	],
 	"accessors":[
@@ -191,6 +206,12 @@
 			"byteLength":672,
 			"byteOffset":68048,
 			"target":34963
+		}
+	],
+	"samplers":[
+		{
+			"magFilter":9729,
+			"minFilter":9987
 		}
 	],
 	"buffers":[

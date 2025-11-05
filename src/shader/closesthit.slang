@@ -25,8 +25,6 @@ void closestHitMain(in BuiltInTriangleIntersectionAttributes attr, inout Radianc
                   vertices[i1].pos.xyz * u +
                   vertices[i2].pos.xyz * v;
 
-    float3 albedo = BaseColorTex.SampleLevel(BaseSampler, uv, 0).rgb;
-
     float3 hitPos = mul(float4(pObj, 1.0), ObjectToWorld4x3()).xyz;
     float3 inRay = -WorldRayDirection();
     float3 Ns = normalize(mul(N, (float3x3)ObjectToWorld3x4()));
@@ -59,6 +57,11 @@ void closestHitMain(in BuiltInTriangleIntersectionAttributes attr, inout Radianc
     uint matId = primitiveMat[prim];
     Material m = materials[matId];
 
-    float3 color = float3(m.baseColorFactor.r, m.baseColorFactor.g, m.baseColorFactor.b);
+    float3 baseColor = m.baseColorFactor.rgb;
+    if (m.baseColorTextureIndex >= 0) {
+        baseColor = Textures[m.baseColorTextureIndex].SampleLevel(BaseSampler, uv, 0.0).rgb;
+    }
+
+    float3 color = baseColor;
     payload.radiance = color;
 }

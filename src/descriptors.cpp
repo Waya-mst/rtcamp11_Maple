@@ -2,11 +2,13 @@
 #include "../include/globals.hpp"
 
 void createDescriptor(size_t countSets){
+    size_t imageCount = std::max<size_t>(1, model.images.size());
+
     const uint32_t asPerSet      = 1;
     const uint32_t imgPerSet     = 1;
     const uint32_t uboPerSet     = 1;
     const uint32_t ssboPerSet    = 4;
-    const uint32_t texPerSet     = 2;
+    const uint32_t texPerSet     = 1 + imageCount; // envMap + texture
     const uint32_t samplerPerset = 2;
 
     std::vector<vk::DescriptorPoolSize> poolSizes;
@@ -76,7 +78,7 @@ void createDescriptor(size_t countSets){
     // sampled Image
     bindings[7].setBinding(7);
     bindings[7].setDescriptorType(vk::DescriptorType::eSampledImage);
-    bindings[7].setDescriptorCount(1);
+    bindings[7].setDescriptorCount(textureImageViews.size());
     bindings[7].setStageFlags(vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
 
     // sampler
@@ -192,14 +194,18 @@ void updateDescriptorSet(uint32_t setIndex, vk::ImageView imageView){
     writes[6].setBufferInfo(matIdxInfo);
 
     // [7]: For texture
-    vk::DescriptorImageInfo texImginfo[1];
-    texImginfo[0].setImageView(textureImageView.get());
-    texImginfo[0].setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+    std::vector<vk::DescriptorImageInfo> texInfos;
+    for(auto& v : textureImageViews){
+        vk::DescriptorImageInfo iI;
+        iI.setImageView(v.get());
+        iI.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+        texInfos.push_back(iI);
+    }
     writes[7].setDstSet(*descSets[setIndex]);
     writes[7].setDstBinding(7);
-    writes[7].setDescriptorCount(1);
+    writes[7].setDescriptorCount((uint32_t)texInfos.size());
     writes[7].setDescriptorType(vk::DescriptorType::eSampledImage);
-    writes[7].setPImageInfo(texImginfo);
+    writes[7].setPImageInfo(texInfos.data());
 
     // [8]: For sampler
     vk::DescriptorImageInfo samplerinfo[1];

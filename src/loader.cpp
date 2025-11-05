@@ -3,7 +3,6 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
-const std::string texturePath = "./resource/texture/wood.jpg";
 const std::string envMapPath = "./resource/envmap/env.hdr";
 const std::string gltfPath = "./resource/mesh/test.gltf";
 
@@ -201,41 +200,181 @@ void loadModel(){
 }
 
 void loadTexture(){
-    int imgWidth, imgHeight, imgCh;
+    textureImages.clear();
+    textureMemorys.clear();
+    textureImageViews.clear();
+
+    std::string baseDir = gltfPath.substr(0, gltfPath.find_last_of("/\\") + 1);
+
+    for(const auto& img : model.images){
+        const unsigned char* data = nullptr;
+        int width = 0;
+        int height = 0;
+        int comp = 4;
+        bool needfree = false;
+
+        if(!img.uri.empty()){
+            std::string texPath = baseDir + "../texture/" + img.uri;
+            int comp;
+            auto loaded = stbi_load(texPath.c_str(), &width, &height, &comp, STBI_rgb_alpha);
+            if(loaded == nullptr) {
+                std::cerr << "画像ファイルの読み込みに失敗しました。" << std::endl;
+                return;
+            }
+            data = loaded;
+            needfree = true;
+        }else if(img.bufferView >= 0){
+            data = img.image.data();
+            width = img.width;
+            height = img.height;
+            comp = img.component;
+        }
+
+        size_t imgDataSize = 4 * width * height;
+
+        Buffer buffer;
+        buffer.init(
+            physicalDevice, *device, imgDataSize,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+            data);
+        textureBuffers.push_back(std::move(buffer));
+
+        if(needfree) stbi_image_free((void*)data);
+
+        vk::ImageCreateInfo imgCI{};
+        imgCI.setImageType(vk::ImageType::e2D);
+        imgCI.setExtent(vk::Extent3D{(uint32_t)width, (uint32_t)height, 1});
+        imgCI.setMipLevels(1); imgCI.setArrayLayers(1);
+        imgCI.setFormat(vk::Format::eR8G8B8A8Unorm);
+        imgCI.setTiling(vk::ImageTiling::eOptimal);
+        imgCI.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
+        imgCI.setSamples(vk::SampleCountFlagBits::e1);
+        imgCI.setSharingMode(vk::SharingMode::eExclusive);
+
+        auto image = device->createImageUnique(imgCI);
+        auto memReq = device->getImageMemoryRequirements(image.get());
+        uint32_t memIndex = 0;
+        for(uint32_t i = 0; i < physicalDevice.getMemoryProperties().memoryTypeCount; i++){
+            if((memReq.memoryTypeBits & (1 << i)) &&
+            (physicalDevice.getMemoryProperties().memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal))
+            {
+                memIndex = i; break;
+            }
+        }
+
+        vk::MemoryAllocateInfo mAI{memReq.size, memIndex};
+        auto mem = device->allocateMemoryUnique(mAI);
+        device->bindImageMemory(image.get(), mem.get(), 0);
+
+        vk::CommandBufferAllocateInfo tmpCmdBufAllocInfo;
+        tmpCmdBufAllocInfo.commandPool = commandPool.get();
+        tmpCmdBufAllocInfo.commandBufferCount = 1;
+        tmpCmdBufAllocInfo.level = vk::CommandBufferLevel::ePrimary;
+        std::vector<vk::UniqueCommandBuffer> tmpCmdBufs = device->allocateCommandBuffersUnique(tmpCmdBufAllocInfo);
+
+        vk::CommandBufferBeginInfo cmdBeginInfo;
+        cmdBeginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+        tmpCmdBufs[0]->begin(cmdBeginInfo);
+        {
+            vk::ImageMemoryBarrier barrior;
+            barrior.oldLayout = vk::ImageLayout::eUndefined;
+            barrior.newLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.image = image.get();
+            barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            barrior.subresourceRange.baseMipLevel = 0;
+            barrior.subresourceRange.levelCount = 1;
+            barrior.subresourceRange.baseArrayLayer = 0;
+            barrior.subresourceRange.layerCount = 1;
+            barrior.srcAccessMask = {};
+            barrior.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+            tmpCmdBufs[0]->pipelineBarrier(
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {barrior});
+        }
+        {
+            vk::BufferImageCopy imgCopyRegion;
+            imgCopyRegion.setBufferOffset(0);
+            imgCopyRegion.imageSubresource.setAspectMask(vk::ImageAspectFlagBits::eColor);
+            imgCopyRegion.imageSubresource.setMipLevel(0);
+            imgCopyRegion.imageSubresource.setBaseArrayLayer(0);
+            imgCopyRegion.imageSubresource.setLayerCount(1);
+            imgCopyRegion.setImageOffset(vk::Offset3D{0, 0, 0});
+            imgCopyRegion.setImageExtent({uint32_t(width), uint32_t(height), 1});
+            imgCopyRegion.setBufferRowLength(0);
+            imgCopyRegion.setBufferImageHeight(0);
+
+            auto& staging = textureBuffers.back();
+            tmpCmdBufs[0]->copyBufferToImage(
+                staging.buffer.get(),
+                image.get(), vk::ImageLayout::eTransferDstOptimal, { imgCopyRegion });
+        }
+        {
+            vk::ImageMemoryBarrier barrior;
+            barrior.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrior.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+            barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.image = image.get();
+            barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            barrior.subresourceRange.baseMipLevel = 0;
+            barrior.subresourceRange.levelCount = 1;
+            barrior.subresourceRange.baseArrayLayer = 0;
+            barrior.subresourceRange.layerCount = 1;
+            barrior.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            barrior.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+            tmpCmdBufs[0]->pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eRayTracingShaderKHR, {}, {}, {}, {barrior});
+        }
+        tmpCmdBufs[0]->end();
+
+        vk::CommandBuffer submitCmdBuf[1] = {tmpCmdBufs[0].get()};
+        vk::SubmitInfo submitInfo;
+        submitInfo.setCommandBufferCount(1);
+        submitInfo.setPCommandBuffers(submitCmdBuf);
+
+        queue.submit({submitInfo});
+        queue.waitIdle();
+
+        vk::ImageViewCreateInfo texImgViewCreateInfo;
+        texImgViewCreateInfo.image = image.get();
+        texImgViewCreateInfo.viewType = vk::ImageViewType::e2D;
+        texImgViewCreateInfo.format = vk::Format::eR8G8B8A8Unorm;
+        texImgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        texImgViewCreateInfo.subresourceRange.baseMipLevel = 0;
+        texImgViewCreateInfo.subresourceRange.levelCount = 1;
+        texImgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+        texImgViewCreateInfo.subresourceRange.layerCount = 1;
+        vk::UniqueImageView texImgView = device->createImageViewUnique(texImgViewCreateInfo);
+
+        textureImages.push_back(std::move(image));
+        textureMemorys.push_back(std::move(mem));
+        textureImageViews.push_back(std::move(texImgView));
+    }
+
     int envWidth, envHeight, envCh;
     uint32_t faceSize = 2048;
     size_t   facePixels = (size_t)faceSize * (size_t)faceSize;
     size_t   faceBytes  = facePixels * 4 * sizeof(float);   // RGBA32F
     size_t   totalBytes = faceBytes * 6;
 
-    auto pImgData = stbi_load(texturePath.c_str(), &imgWidth, &imgHeight, &imgCh, STBI_rgb_alpha);
     auto pEnvData = stbi_loadf(envMapPath.c_str(), &envWidth, &envHeight, &envCh, STBI_rgb_alpha);
 
-    if(pImgData == nullptr || pEnvData == nullptr) {
+    if(pEnvData == nullptr) {
         std::cerr << "画像ファイルの読み込みに失敗しました。" << std::endl;
         return;
     }
 
-    size_t imgDataSize = 4 * imgWidth * imgHeight;
     size_t envDataSize = 4 * envWidth * envHeight * sizeof(float);
-
-    textureBuffers[0].init(
-        physicalDevice, *device, imgDataSize,
-        vk::BufferUsageFlagBits::eTransferSrc,
-        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-        pImgData);
-
-    stbi_image_free(pImgData);
-
-    vk::ImageCreateInfo imgCI{};
-    imgCI.setImageType(vk::ImageType::e2D);
-    imgCI.setExtent({(uint32_t)imgWidth, (uint32_t)imgHeight, 1});
-    imgCI.setMipLevels(1); imgCI.setArrayLayers(1);
-    imgCI.setFormat(vk::Format::eR8G8B8A8Unorm);
-    imgCI.setTiling(vk::ImageTiling::eOptimal);
-    imgCI.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
-    imgCI.setSharingMode(vk::SharingMode::eExclusive);
-    imgCI.setSamples(vk::SampleCountFlagBits::e1);
 
     vk::ImageCreateInfo envCI{};
     envCI.setFlags(vk::ImageCreateFlagBits::eCubeCompatible);
@@ -248,24 +387,10 @@ void loadTexture(){
     envCI.setSharingMode(vk::SharingMode::eExclusive);
     envCI.setSamples(vk::SampleCountFlagBits::e1);
 
-    textureImage = device->createImageUnique(imgCI);
     envTexImage = device->createImageUnique(envCI);
 
-    auto memReq = device->getImageMemoryRequirements(textureImage.get());
+    auto memReq = device->getImageMemoryRequirements(envTexImage.get());
     uint32_t memIndex = 0;
-    for(uint32_t i = 0; i < physicalDevice.getMemoryProperties().memoryTypeCount; i++){
-        if((memReq.memoryTypeBits & (1 << i)) &&
-        (physicalDevice.getMemoryProperties().memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal))
-        {
-            memIndex = i; break;
-        }
-    }
-    vk::MemoryAllocateInfo mAI{memReq.size, memIndex};
-    textureMemory = device->allocateMemoryUnique(mAI);
-    device->bindImageMemory(textureImage.get(), textureMemory.get(), 0);
-
-    memReq = device->getImageMemoryRequirements(envTexImage.get());
-    memIndex = 0;
     for(uint32_t i = 0; i < physicalDevice.getMemoryProperties().memoryTypeCount; i++){
         if((memReq.memoryTypeBits & (1 << i)) &&
         (physicalDevice.getMemoryProperties().memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal))
@@ -287,60 +412,6 @@ void loadTexture(){
     cmdBeginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
     tmpCmdBufs[0]->begin(cmdBeginInfo);
-
-    {
-        vk::ImageMemoryBarrier barrior;
-        barrior.oldLayout = vk::ImageLayout::eUndefined;
-        barrior.newLayout = vk::ImageLayout::eTransferDstOptimal;
-        barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrior.image = textureImage.get();
-        barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        barrior.subresourceRange.baseMipLevel = 0;
-        barrior.subresourceRange.levelCount = 1;
-        barrior.subresourceRange.baseArrayLayer = 0;
-        barrior.subresourceRange.layerCount = 1;
-        barrior.srcAccessMask = {};
-        barrior.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
-
-        tmpCmdBufs[0]->pipelineBarrier(
-            vk::PipelineStageFlagBits::eTopOfPipe,
-            vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {barrior});
-    }
-    {
-        vk::BufferImageCopy imgCopyRegion;
-        imgCopyRegion.setBufferOffset(0);
-        imgCopyRegion.imageSubresource.setAspectMask(vk::ImageAspectFlagBits::eColor);
-        imgCopyRegion.imageSubresource.setMipLevel(0);
-        imgCopyRegion.imageSubresource.setBaseArrayLayer(0);
-        imgCopyRegion.imageSubresource.setLayerCount(1);
-        imgCopyRegion.setImageOffset(vk::Offset3D{0, 0, 0});
-        imgCopyRegion.setImageExtent({uint32_t(imgWidth), uint32_t(imgHeight), 1});
-        imgCopyRegion.setBufferRowLength(0);
-        imgCopyRegion.setBufferImageHeight(0);
-
-        tmpCmdBufs[0]->copyBufferToImage(
-            textureBuffers[0].buffer.get(),
-            textureImage.get(), vk::ImageLayout::eTransferDstOptimal, { imgCopyRegion });
-    }
-    {
-        vk::ImageMemoryBarrier barrior;
-        barrior.oldLayout = vk::ImageLayout::eTransferDstOptimal;
-        barrior.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrior.image = textureImage.get();
-        barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-        barrior.subresourceRange.baseMipLevel = 0;
-        barrior.subresourceRange.levelCount = 1;
-        barrior.subresourceRange.baseArrayLayer = 0;
-        barrior.subresourceRange.layerCount = 1;
-        barrior.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        barrior.dstAccessMask = vk::AccessFlagBits::eShaderRead;
-        tmpCmdBufs[0]->pipelineBarrier(
-            vk::PipelineStageFlagBits::eTransfer,
-            vk::PipelineStageFlagBits::eRayTracingShaderKHR, {}, {}, {}, {barrior});
-    }
 
     {
         vk::ImageMemoryBarrier barrior;
@@ -461,21 +532,6 @@ void loadTexture(){
 
     sampler = device->createSamplerUnique(samplerCreateInfo);
     envSampler = device->createSamplerUnique(samplerCreateInfo);
-
-    vk::ImageViewCreateInfo texImgViewCreateInfo;
-    texImgViewCreateInfo.image = textureImage.get();
-    texImgViewCreateInfo.viewType = vk::ImageViewType::e2D;
-    texImgViewCreateInfo.format = vk::Format::eR8G8B8A8Unorm;
-    texImgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
-    texImgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
-    texImgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
-    texImgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
-    texImgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
-    texImgViewCreateInfo.subresourceRange.baseMipLevel = 0;
-    texImgViewCreateInfo.subresourceRange.levelCount = 1;
-    texImgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-    texImgViewCreateInfo.subresourceRange.layerCount = 1;
-    textureImageView = device->createImageViewUnique(texImgViewCreateInfo);
 
     vk::ImageViewCreateInfo envTexImageViewCI;
     envTexImageViewCI.image = envTexImage.get();
