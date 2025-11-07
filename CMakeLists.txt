@@ -52,8 +52,6 @@ add_custom_command(
           -stage raygeneration
           -o ${SHADER_OUT_DIR}/raygen.spv
   DEPENDS ${SHADER_DIR}/raygen.slang
-          ${SHADER_DIR}/common_types.slang
-          ${SHADER_DIR}/common_bindings.slang
   VERBATIM
 )
 
@@ -69,8 +67,6 @@ add_custom_command(
           -stage miss
           -o ${SHADER_OUT_DIR}/miss_main.spv
   DEPENDS ${SHADER_DIR}/miss_main.slang
-          ${SHADER_DIR}/common_types.slang
-          ${SHADER_DIR}/common_bindings.slang
   VERBATIM
 )
 
@@ -86,8 +82,6 @@ add_custom_command(
           -stage miss
           -o ${SHADER_OUT_DIR}/miss_shadow.spv
   DEPENDS ${SHADER_DIR}/miss_shadow.slang
-          ${SHADER_DIR}/common_types.slang
-          ${SHADER_DIR}/common_bindings.slang
   VERBATIM
 )
 
@@ -103,8 +97,6 @@ add_custom_command(
           -stage closesthit
           -o ${SHADER_OUT_DIR}/closesthit.spv
   DEPENDS ${SHADER_DIR}/closesthit.slang
-          ${SHADER_DIR}/common_types.slang
-          ${SHADER_DIR}/common_bindings.slang
   VERBATIM
 )
 
@@ -120,8 +112,6 @@ add_custom_command(
           -stage anyhit
           -o ${SHADER_OUT_DIR}/anyhit.spv
   DEPENDS ${SHADER_DIR}/anyhit.slang
-          ${SHADER_DIR}/common_types.slang
-          ${SHADER_DIR}/common_bindings.slang
   VERBATIM
 )
 

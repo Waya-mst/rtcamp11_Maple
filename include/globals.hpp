@@ -44,6 +44,7 @@ struct Material{
 
     float metallicFactor = 1.0f;
     float roughnessFactor = 1.0f;
+    float transmission = 1.0f;
     float ior = 1.5f;
 
     alignas(16) glm::vec4 baseColorFactor = glm::vec4(1.0f);

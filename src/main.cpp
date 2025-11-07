@@ -10,12 +10,11 @@
 #include <iostream>
 
 int main(){
+    auto exeDir = std::filesystem::current_path();
     SetupVulkan();
     createOutputBuffer();
     createUniformBuffer();
-    loadModel();
-    loadMaterial();
-    loadTexture();
+    loadResources(exeDir);
     createDescriptor(1);
     createBLAS();
     createTLAS();

@@ -1,5 +1,4 @@
-import common_types;
-#include "common_bindings.slang"
+#include "common_types.slang"
 
 [shader("miss")]
 void missShadow(inout ShadowPayload vis)

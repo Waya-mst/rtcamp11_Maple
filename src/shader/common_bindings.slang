@@ -1,3 +1,5 @@
+#pragma once
+
 public struct Vertex {
     float4 pos;
     float4 normal;
@@ -13,6 +15,7 @@ public struct Material {
 
     float metallicFactor;
     float roughnessFactor;
+    float transmission;
     float ior;
 
     float4 baseColorFactor;
@@ -30,7 +33,7 @@ public struct Material {
 [vk::binding(4,0)] StructuredBuffer<uint> indices;
 [vk::binding(5,0)] StructuredBuffer<Material> materials;
 [vk::binding(6,0)] StructuredBuffer<uint> primitiveMat;
-[vk::binding(7,0)] Texture2D<float4> Textures[];
-[vk::binding(8,0)] SamplerState BaseSampler;
+[vk::binding(7,0)] Texture2D<float4> textures[];
+[vk::binding(8,0)] SamplerState texSampler;
 [vk::binding(9,0)] TextureCube<float4> envMapTex;
 [vk::binding(10,0)] SamplerState envSampler;

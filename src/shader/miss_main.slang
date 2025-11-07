@@ -1,9 +1,9 @@
-import common_types;
-#include "common_bindings.slang"
+#include "common_types.slang"
 
 [shader("miss")]
-void missMain(inout RadiancePayload payload)
+void missMain(inout Payload payload)
 {
+    payload.miss_frag = true;
     float3 dir = normalize(WorldRayDirection());
 
     // equirectangular環境マップをUVに変換

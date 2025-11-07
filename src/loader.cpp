@@ -3,9 +3,6 @@
 #include <glm/glm.hpp>
 #include <iostream>
 
-const std::string envMapPath = "./resource/envmap/env.hdr";
-const std::string gltfPath = "./resource/mesh/test.gltf";
-
 glm::vec3 CubemapDirectionFromFaceXY(int face, int x, int y, int faceSize)
 {
     // [-1,1] に正規化したテクスチャ座標
@@ -51,7 +48,8 @@ glm::vec4 SampleEquirect(const glm::vec3& dir, const float* src, int w, int h)
     return glm::vec4(p[0], p[1], p[2], p[3]);
 }
 
-void loadModel(){
+void loadModel(std::string resourcePath){
+    std::string gltfPath = resourcePath + "\\mesh\\test.gltf";
     std::string err, warn;
 
     bool ret = loader.LoadASCIIFromFile(&model, &err, &warn, gltfPath);
@@ -199,7 +197,10 @@ void loadModel(){
     }
 }
 
-void loadTexture(){
+void loadTexture(std::string resourcePath){
+    std::string gltfPath = resourcePath + "\\mesh\\test.gltf";
+    std::string envMapPath = resourcePath + "\\envmap\\env.hdr";
+
     textureImages.clear();
     textureMemorys.clear();
     textureImageViews.clear();
@@ -555,6 +556,12 @@ void loadMaterial(){
 
     for(const auto& mat : model.materials){
         Material m;
+        m.baseColorTextureIndex = -1;
+        m.matallicRoughnessTextureIndex = -1;
+        m.normalTextureIndex = -1;
+        m.occulusionTextureIndex = -1;
+        m.emissiveTextureIndex = -1;
+
         const auto& pbr = mat.pbrMetallicRoughness;
 
         if (pbr.baseColorFactor.size() == 4) {
@@ -602,6 +609,15 @@ void loadMaterial(){
             m.emissiveFactor = glm::vec4(0.0f);
         }
 
+        m.transmission = 0.0f;
+        auto extTransmission = mat.extensions.find("KHR_materials_transmission");
+        if(extTransmission != mat.extensions.end()){
+            const tinygltf::Value& ext = extTransmission->second;
+            if(ext.Has("transmission")){
+                m.transmission = (float)ext.Get("transmission").GetNumberAsDouble();
+            }
+        }
+
         m.ior = 1.5f;
         auto extIor = mat.extensions.find("KHR_materials_ior");
         if (extIor != mat.extensions.end()) {
@@ -622,4 +638,11 @@ void loadMaterial(){
     materialBuffer.init(
         physicalDevice, *device, sizeof(Material) * materials.size(),
         bufferUsage, memoryProperty, materials.data());
+}
+
+void loadResources(std::filesystem::path exeDir){
+    std::string resourcePath = (exeDir / "resource").string();
+    loadModel(resourcePath);
+    loadMaterial();
+    loadTexture(resourcePath);
 }

@@ -45,7 +45,7 @@ void drawCall(){
 
     int update = 0;
     
-    while(frameIndex < 10 && std::chrono::system_clock::now() < deadline){
+    while(frameIndex < 3 && std::chrono::system_clock::now() < deadline){
         {
             auto now = std::chrono::system_clock::now();
             auto remaining = (deadline > now) ? (deadline - now) : std::chrono::system_clock::duration::zero();
@@ -118,7 +118,7 @@ void drawCall(){
 
         vk::PipelineStageFlags srcStage =
             (frameIndex == 0) ? vk::PipelineStageFlagBits::eTopOfPipe
-                            : vk::PipelineStageFlagBits::eTransfer;   // ← ここ重要
+                            : vk::PipelineStageFlagBits::eTransfer;
         vk::PipelineStageFlags dstStage = vk::PipelineStageFlagBits::eRayTracingShaderKHR;
 
         cmdBuf->pipelineBarrier(
@@ -195,7 +195,7 @@ void drawCall(){
         vk::PipelineStageFlags renderwaitStages[] = {vk::PipelineStageFlagBits::eRayTracingShaderKHR};
         submitInfo.setPWaitDstStageMask(renderwaitStages);
         
-        queue.submit({submitInfo}, inFlight[0].get()); 
+        queue.submit({submitInfo}, inFlight[0].get());
 
         auto fenceToWait = inFlight[0].get();
 

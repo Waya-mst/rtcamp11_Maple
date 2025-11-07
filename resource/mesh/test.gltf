@@ -3,6 +3,10 @@
 		"generator":"Khronos glTF Blender I/O v4.5.49",
 		"version":"2.0"
 	},
+	"extensionsUsed":[
+		"KHR_materials_transmission",
+		"KHR_materials_ior"
+	],
 	"scene":0,
 	"scenes":[
 		{
@@ -20,13 +24,29 @@
 	],
 	"materials":[
 		{
+			"alphaMode":"BLEND",
 			"doubleSided":true,
+			"extensions":{
+				"KHR_materials_transmission":{
+					"transmissionFactor":0.5921450257301331
+				},
+				"KHR_materials_ior":{
+					"ior":2.9000000953674316
+				}
+			},
 			"name":"\u30de\u30c6\u30ea\u30a2\u30eb",
 			"pbrMetallicRoughness":{
+				"baseColorFactor":[
+					1,
+					1,
+					1,
+					0.48640480637550354
+				],
 				"baseColorTexture":{
 					"index":0
 				},
-				"metallicFactor":0
+				"metallicFactor":0.7341389656066895,
+				"roughnessFactor":0.5
 			}
 		},
 		{
