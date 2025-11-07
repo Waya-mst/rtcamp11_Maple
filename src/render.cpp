@@ -20,6 +20,7 @@ void drawCall(std::filesystem::path exePath){
     float playTime = 3.0;
 
     int frameIndex = 0;
+    std::cout << "output: " << fps * playTime << " images" << std::endl;
 
     vk::CommandBufferAllocateInfo cmdAllocInfo{};
     cmdAllocInfo.setLevel(vk::CommandBufferLevel::ePrimary);
@@ -214,7 +215,7 @@ void drawCall(std::filesystem::path exePath){
         size_t size = size_t(width) * size_t(height) * 4;
         void* mapped = device->mapMemory(outputBuffer.memory.get(), 0, size);
         char filename[256];
-        std::snprintf(filename, sizeof(filename), "%3u.png", frameIndex);
+        std::snprintf(filename, sizeof(filename), "%03u.png", frameIndex);
         stbi_write_png(filename, width, height, 4, mapped, int(width * 4));
         device->unmapMemory(outputBuffer.memory.get());
 
