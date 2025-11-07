@@ -21,6 +21,6 @@ int main(){
     prepareShaders();
     createRayTracingPipeline();
     createShaderBindingTable();
-    drawCall();
+    drawCall(exeDir);
     return 0;
 }

@@ -2,12 +2,23 @@
 #include "../include/vk_setup.hpp"
 #include "../include/descriptors.hpp"
 #include <iostream>
+#include <fstream>
 #include <cmath>
 #include <chrono>
 #include <stb_image_write.h>
 
 
-void drawCall(){
+void drawCall(std::filesystem::path exePath){
+    std::string fpsTxtPath = (exePath / "fps.txt").string();
+    std::ifstream ifs(fpsTxtPath);
+    if (!ifs) {
+        std::cerr << "can't open fps.txt :(\n";
+        return;
+    }
+    uint32_t fps = 0;
+    ifs >> fps;
+    float playTime = 3.0;
+
     int frameIndex = 0;
 
     vk::CommandBufferAllocateInfo cmdAllocInfo{};
@@ -45,7 +56,7 @@ void drawCall(){
 
     int update = 0;
     
-    while(frameIndex < 3 && std::chrono::system_clock::now() < deadline){
+    while(frameIndex < fps * playTime && std::chrono::system_clock::now() < deadline){
         {
             auto now = std::chrono::system_clock::now();
             auto remaining = (deadline > now) ? (deadline - now) : std::chrono::system_clock::duration::zero();

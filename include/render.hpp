@@ -1,3 +1,3 @@
 #pragma once
 
-void drawCall();
+void drawCall(std::filesystem::path exePath);
