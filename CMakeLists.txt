@@ -6,7 +6,6 @@ if (MSVC)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 endif()
 
-# FindPackage
 find_package(Vulkan REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(glfw3 REQUIRED)
@@ -115,14 +114,70 @@ add_custom_command(
   VERBATIM
 )
 
-# 生成物をまとめるターゲット
-add_custom_target(shaders ALL
+set(SHADER_HPP_DIR ${CMAKE_BINARY_DIR}/shaders)
+
+#------------------------------------------------
+#.spv -> .h
+
+add_custom_command(
+  OUTPUT ${SHADER_HPP_DIR}/raygen_spv.hpp
+  COMMAND ${CMAKE_COMMAND}
+          -DINPUT=${SHADER_OUT_DIR}/raygen.spv
+          -DOUTPUT=${SHADER_HPP_DIR}/raygen_spv.hpp
+          -DVAR=raygen_spv
+          -P ${CMAKE_SOURCE_DIR}/bin2h.cmake
+  DEPENDS ${SHADER_OUT_DIR}/raygen.spv
+)
+
+add_custom_command(
+  OUTPUT ${SHADER_HPP_DIR}/miss_main_spv.hpp
+  COMMAND ${CMAKE_COMMAND}
+          -DINPUT=${SHADER_OUT_DIR}/miss_main.spv
+          -DOUTPUT=${SHADER_HPP_DIR}/miss_main_spv.hpp
+          -DVAR=miss_main_spv
+          -P ${CMAKE_SOURCE_DIR}/bin2h.cmake
+  DEPENDS ${SHADER_OUT_DIR}/miss_main.spv
+)
+
+add_custom_command(
+  OUTPUT ${SHADER_HPP_DIR}/miss_shadow_spv.hpp
+  COMMAND ${CMAKE_COMMAND}
+          -DINPUT=${SHADER_OUT_DIR}/miss_shadow.spv
+          -DOUTPUT=${SHADER_HPP_DIR}/miss_shadow_spv.hpp
+          -DVAR=miss_shadow_spv
+          -P ${CMAKE_SOURCE_DIR}/bin2h.cmake
+  DEPENDS ${SHADER_OUT_DIR}/miss_shadow.spv
+)
+
+add_custom_command(
+  OUTPUT ${SHADER_HPP_DIR}/closesthit_spv.hpp
+  COMMAND ${CMAKE_COMMAND}
+          -DINPUT=${SHADER_OUT_DIR}/closesthit.spv
+          -DOUTPUT=${SHADER_HPP_DIR}/closesthit_spv.hpp
+          -DVAR=closesthit_spv
+          -P ${CMAKE_SOURCE_DIR}/bin2h.cmake
+  DEPENDS ${SHADER_OUT_DIR}/closesthit.spv
+)
+
+add_custom_command(
+  OUTPUT ${SHADER_HPP_DIR}/anyhit_spv.hpp
+  COMMAND ${CMAKE_COMMAND}
+          -DINPUT=${SHADER_OUT_DIR}/anyhit.spv
+          -DOUTPUT=${SHADER_HPP_DIR}/anyhit_spv.hpp
+          -DVAR=anyhit_spv
+          -P ${CMAKE_SOURCE_DIR}/bin2h.cmake
+  DEPENDS ${SHADER_OUT_DIR}/anyhit.spv
+)
+
+#------------------------------------------------
+
+add_custom_target(shader_headers ALL
   DEPENDS
-    ${SHADER_OUT_DIR}/raygen.spv
-    ${SHADER_OUT_DIR}/miss_main.spv
-    ${SHADER_OUT_DIR}/miss_shadow.spv
-    ${SHADER_OUT_DIR}/closesthit.spv
-    ${SHADER_OUT_DIR}/anyhit.spv
+    ${SHADER_HPP_DIR}/raygen_spv.hpp
+    ${SHADER_HPP_DIR}/miss_main_spv.hpp
+    ${SHADER_HPP_DIR}/miss_shadow_spv.hpp
+    ${SHADER_HPP_DIR}/closesthit_spv.hpp
+    ${SHADER_HPP_DIR}/anyhit_spv.hpp
 )
 
 add_executable(${PROJECT_NAME} ${APP_SOURCES})
@@ -132,23 +187,21 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/libs/nlohmann
 )
 
-# 実行ファイルがシェーダに依存
-add_dependencies(${PROJECT_NAME} shaders)
+add_dependencies(${PROJECT_NAME} shader_headers)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${SRC_DIR}
+  ${SHADER_HPP_DIR}
 )
 
-# 実行用のカスタムターゲット
 add_custom_target(run
   COMMAND $<TARGET_FILE:${PROJECT_NAME}>
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}  # 実行時のカレントをプロジェクトルートに
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   USES_TERMINAL
-  DEPENDS ${PROJECT_NAME}                # 先にビルドしてから実行
+  DEPENDS ${PROJECT_NAME}
 )
 
-# 既に作ってある run ターゲットからも依存（ビルド→シェーダ生成→実行）
-add_dependencies(run shaders)
+#add_dependencies(run shaders)
 
 target_compile_features( ${PROJECT_NAME} PRIVATE cxx_std_20)
 target_compile_options ( ${PROJECT_NAME} PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/Zc:__cplusplus /utf-8>)

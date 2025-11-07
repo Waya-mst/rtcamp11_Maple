@@ -1,26 +1,24 @@
 #include "../include/globals.hpp"
 #include "../include/buffer.hpp"
+
+#include "raygen_spv.hpp"
+#include "miss_main_spv.hpp"
+#include "miss_shadow_spv.hpp"
+#include "closesthit_spv.hpp"
+#include "anyhit_spv.hpp"
+
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 
-void addShader(uint32_t shaderIndex,
-                const std::string& filename,
-                vk::ShaderStageFlagBits stage){
-    size_t SpvFileSz = std::filesystem::file_size(filename);
-    std::ifstream SpvFile(filename, std::ios_base::binary);
-
-    std::vector<char> SpvFileData(SpvFileSz);
-    SpvFile.read(SpvFileData.data(), SpvFileSz);
-
-    vk::ShaderModuleCreateInfo shaderCreateInfo{};
-    shaderCreateInfo.setCodeSize(SpvFileSz);
-    shaderCreateInfo.setPCode(reinterpret_cast<const uint32_t*>(SpvFileData.data()));
-
-    shaderModules[shaderIndex] = device->createShaderModuleUnique(shaderCreateInfo);
-    shaderStages[shaderIndex].setStage(stage);
-    shaderStages[shaderIndex].setModule(*shaderModules[shaderIndex]);
-    shaderStages[shaderIndex].setPName("main");
+vk::UniqueShaderModule createShaderModuleFromEmbedded(vk::Device &device,
+                                              const void* data,
+                                              size_t sizeBytes)
+{
+    vk::ShaderModuleCreateInfo ci{};
+    ci.codeSize = sizeBytes;
+    ci.pCode    = static_cast<const uint32_t*>(data);  // SPIR-Vなのでuint32_t*
+    return device.createShaderModuleUnique(ci);
 }
 
 void prepareShaders(){
@@ -32,11 +30,50 @@ void prepareShaders(){
     shaderStages.resize(5);
     shaderModules.resize(5);
 
-    addShader(raygenShader, "build/shaders/raygen.spv", vk::ShaderStageFlagBits::eRaygenKHR);
-    addShader(missMainShader, "build/shaders/miss_main.spv", vk::ShaderStageFlagBits::eMissKHR);
-    addShader(missShadowShader, "build/shaders/miss_shadow.spv", vk::ShaderStageFlagBits::eMissKHR);
-    addShader(chitShader, "build/shaders/closesthit.spv", vk::ShaderStageFlagBits::eClosestHitKHR);
-    addShader(visShader, "build/shaders/anyhit.spv", vk::ShaderStageFlagBits::eAnyHitKHR);
+    // 1) Raygen
+    {
+        auto mod = createShaderModuleFromEmbedded(*device, raygen_spv, raygen_spv_size);
+        shaderModules[raygenShader] = std::move(mod);
+        shaderStages[raygenShader].setStage(vk::ShaderStageFlagBits::eRaygenKHR);
+        shaderStages[raygenShader].setModule(*shaderModules[raygenShader]);
+        shaderStages[raygenShader].setPName("main");   // エントリ名は今までと同じ
+    }
+
+    // 2) Miss (main)
+    {
+        auto mod = createShaderModuleFromEmbedded(*device, miss_main_spv, miss_main_spv_size);
+        shaderModules[missMainShader] = std::move(mod);
+        shaderStages[missMainShader].setStage(vk::ShaderStageFlagBits::eMissKHR);
+        shaderStages[missMainShader].setModule(*shaderModules[missMainShader]);
+        shaderStages[missMainShader].setPName("main");
+    }
+
+    // 3) Miss (shadow)
+    {
+        auto mod = createShaderModuleFromEmbedded(*device, miss_shadow_spv, miss_shadow_spv_size);
+        shaderModules[missShadowShader] = std::move(mod);
+        shaderStages[missShadowShader].setStage(vk::ShaderStageFlagBits::eMissKHR);
+        shaderStages[missShadowShader].setModule(*shaderModules[missShadowShader]);
+        shaderStages[missShadowShader].setPName("main");
+    }
+
+    // 4) Closest hit
+    {
+        auto mod = createShaderModuleFromEmbedded(*device, closesthit_spv, closesthit_spv_size);
+        shaderModules[chitShader] = std::move(mod);
+        shaderStages[chitShader].setStage(vk::ShaderStageFlagBits::eClosestHitKHR);
+        shaderStages[chitShader].setModule(*shaderModules[chitShader]);
+        shaderStages[chitShader].setPName("main");
+    }
+
+    // 5) Any hit
+    {
+        auto mod = createShaderModuleFromEmbedded(*device, anyhit_spv, anyhit_spv_size);
+        shaderModules[visShader] = std::move(mod);
+        shaderStages[visShader].setStage(vk::ShaderStageFlagBits::eAnyHitKHR);
+        shaderStages[visShader].setModule(*shaderModules[visShader]);
+        shaderStages[visShader].setPName("main");
+    }
 
     uint32_t raygenGroup = 0;
     uint32_t missMainGroup = 1;
