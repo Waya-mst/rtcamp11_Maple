@@ -2,3 +2,6 @@ out/
 .vs/
 .vscode/
 build/
+resource/generated/
+x64/
+src/env_cubemap.cpp

@@ -222,3 +222,17 @@ target_link_libraries( ${PROJECT_NAME} PRIVATE
     glm::glm
     glfw
 )
+
+
+# ============================
+# envMap generator
+# ============================
+add_executable(gen_env_header
+    ${SRC_DIR}/gen_env_header.cpp
+)
+
+target_compile_features(gen_env_header PRIVATE cxx_std_20)
+
+target_link_libraries(gen_env_header PRIVATE glm::glm)
+
+target_include_directories(gen_env_header PRIVATE ${CMAKE_SOURCE_DIR}/libs)
