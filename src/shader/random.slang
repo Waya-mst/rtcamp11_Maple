@@ -1,3 +1,4 @@
+#pragma once
 #include "common_types.slang"
 
 uint Hash_Wang(uint key) {

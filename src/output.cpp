@@ -8,7 +8,6 @@ void createOutputBuffer(){
         vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
     );
     
-
     vk::ImageCreateInfo ci{};
     ci.setImageType(vk::ImageType::e2D);
     ci.setExtent({uint32_t(width), uint32_t(height), 1});

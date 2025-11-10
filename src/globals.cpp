@@ -26,7 +26,7 @@ std::vector<uint32_t> indices;
 std::vector<Material> materials;
 std::vector<uint32_t> primitiveMaterialIndices;
 
-GLFWwindow* window;
+//GLFWwindow* window;
 std::vector<const char*> extensions;
 
 vk::UniqueInstance instance;

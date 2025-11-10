@@ -363,7 +363,7 @@ void loadTexture(std::string resourcePath){
     }
 
     int envWidth, envHeight, envCh;
-    uint32_t faceSize = 2048;
+    uint32_t faceSize = 1024;
     size_t   facePixels = (size_t)faceSize * (size_t)faceSize;
     size_t   faceBytes  = facePixels * 4 * sizeof(float);   // RGBA32F
     size_t   totalBytes = faceBytes * 6;
@@ -435,7 +435,7 @@ void loadTexture(std::string resourcePath){
     }
     {
         std::vector<float> cube(6ull * facePixels * 4);
-
+        std::cout << "before convert hdr to cubemap" << std::endl;
         for (int face = 0; face < 6; ++face) {
             for (int y = 0; y < faceSize; ++y) {
                 for (int x = 0; x < faceSize; ++x) {
@@ -643,6 +643,9 @@ void loadMaterial(){
 void loadResources(std::filesystem::path exeDir){
     std::string resourcePath = (exeDir / "resource").string();
     loadModel(resourcePath);
+    std::cout << "after loadModel" << std::endl;
     loadMaterial();
+    std::cout << "after loadMaterial" << std::endl;
     loadTexture(resourcePath);
+    std::cout << "after loadTexture" << std::endl;
 }

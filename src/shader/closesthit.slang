@@ -1,5 +1,6 @@
 #include "common_types.slang"
 #include "random.slang"
+#include "util.slang"
 
 [shader("closesthit")]
 void closestHitMain(
@@ -108,22 +109,50 @@ void closestHitMain(
         return;
     }
 
-    float3 i = -WorldRayDirection();
-    float rnd_u1 = rand(state);
-    float cos_t = sqrt(rnd_u1);
-    float sin_t = sqrt(max(1 - rnd_u1, 0));
-    float phi = 2.0 * PI * rand(state);
-    float3 dir = normalize(sin_t * cos(phi) * T + sin_t * sin(phi) * B + cos_t * N);
+    float3 albedo = float3(0.0, 0.0, 0.0);
 
-    RayDesc rayDesc;
-    rayDesc.Origin = hitPos + Reflect * eps;
-    rayDesc.Direction = dir;
-    rayDesc.TMin = 0.001;
-    rayDesc.TMax = 1e6;
+    if (metallic > 0.0) {
+        float roulette = rand(payload.seed);
+        if (roulette < 0.5) {
+            // diffuse
+            float3 i = -WorldRayDirection();
+            float rnd_u1 = rand(state);
+            float cos_t = sqrt(rnd_u1);
+            float sin_t = sqrt(max(1 - rnd_u1, 0));
+            float phi = 2.0 * PI * rand(state);
+            float3 dir = normalize(sin_t * cos(phi) * T + sin_t * sin(phi) * B + cos_t * N);
 
-    TraceRay(topLevelAS,
-             RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-             0xFF, 1, 0, 1, rayDesc, payload);
+            RayDesc rayDesc;
+            rayDesc.Origin = hitPos + Reflect * eps;
+            rayDesc.Direction = dir;
+            rayDesc.TMin = 0.001;
+            rayDesc.TMax = 1e6;
+
+            TraceRay(topLevelAS,
+                     RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+                     0xFF, 1, 0, 1, rayDesc, payload);
+
+            albedo += payload.radiance;
+        }else{
+            // specular(GGX)
+            // i: in, o: out, m: half
+            float3 i = worldToLocal(-WorldRayDirection(), payload.normal);
+            float3 m = sampleGGX(roughness, payload.seed);
+            float3 o = reflect(-i, m);
+
+            RayDesc rayDesc;
+            rayDesc.Origin = hitPos + Reflect * eps;
+            rayDesc.Direction = localToWorld(o, payload.normal);
+            rayDesc.TMin = 0.001;
+            rayDesc.TMax = 1e6;
+
+            TraceRay(topLevelAS,
+                     RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+                     0xFF, 1, 0, 1, rayDesc, payload);
+        }
+    }
+
+
 
 
     payload.radiance = emissive + 0.7 * baseColor;

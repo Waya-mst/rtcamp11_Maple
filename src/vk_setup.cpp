@@ -10,13 +10,6 @@ VKAPI_ATTR vk::Bool32 VKAPI_CALL debug_message(
 );
 
 void SetupVulkan(){
-    if(!glfwInit()) return;
-
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    extensions.assign(glfwExtensions, glfwExtensions + glfwExtensionCount);
-    VkResult err;
-
 	// create instance
 	vk::detail::DynamicLoader dl;
 	auto vkGetInstanceProcAddr = dl.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
@@ -24,7 +17,44 @@ void SetupVulkan(){
 
 	extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-	std::vector layers{ "VK_LAYER_KHRONOS_validation" };
+
+    auto availableExts = vk::enumerateInstanceExtensionProperties();
+    std::vector<const char*> enabledExtensions;
+
+    for (auto we : extensions) {
+        bool found = false;
+        for (auto const& e : availableExts) {
+            if (strcmp(e.extensionName, we) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            enabledExtensions.push_back(we);
+        } else {
+            std::cout << "extension not present: " << we << "\n";
+        }
+    }
+
+	std::vector wantedlayers{ "VK_LAYER_KHRONOS_validation" };
+
+    std::vector<vk::LayerProperties> available = vk::enumerateInstanceLayerProperties();
+    std::vector<const char*> enabledLayers;
+
+    for (auto wl : wantedlayers) {
+        bool found = false;
+        for (auto const& a : available) {
+            if (strcmp(a.layerName, wl) == 0) {
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            enabledLayers.push_back(wl);
+        } else {
+            std::cout << "can't find required layer extension" << std::endl;
+        }
+    }
 
     vk::ApplicationInfo appInfo{};
     appInfo.setPApplicationName("vulkan programming");
@@ -32,29 +62,16 @@ void SetupVulkan(){
 
 	vk::InstanceCreateInfo instanceInfo = {};
     instanceInfo.setPApplicationInfo(&appInfo);
-	instanceInfo.setPEnabledExtensionNames(extensions);
-	instanceInfo.setEnabledExtensionCount(extensions.size());
-	instanceInfo.setPEnabledLayerNames(layers);
-	instanceInfo.setEnabledLayerCount(layers.size());
+	// instanceInfo.setPEnabledExtensionNames(extensions);
+	// instanceInfo.setEnabledExtensionCount(extensions.size());
+	instanceInfo.setPEnabledLayerNames(enabledLayers);
+	instanceInfo.setEnabledLayerCount(enabledLayers.size());
 #if defined(__APPLE__)
 	instanceInfo.setFlags(vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR);
 #endif
 	
 	instance = vk::createInstanceUnique(instanceInfo);
 	VULKAN_HPP_DEFAULT_DISPATCHER.init(*instance);
-
-    // create debug messenger
-    vk::DebugUtilsMessengerCreateInfoEXT ci{};
-    ci.messageSeverity =
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-        vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-    ci.messageType =
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-        vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-        vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-    ci.setPfnUserCallback(debug_message);
-    ci.pUserData       = nullptr;
-    debugMessenger = instance->createDebugUtilsMessengerEXTUnique(ci);
 
     // select Device
     std::vector devices = instance->enumeratePhysicalDevices();
@@ -135,6 +152,14 @@ void SetupVulkan(){
     commandPoolCreateInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
     commandPoolCreateInfo.setQueueFamilyIndex(queueFamily);
     commandPool = device->createCommandPoolUnique(commandPoolCreateInfo);
+
+    VkPhysicalDeviceProperties physProps;
+    vkGetPhysicalDeviceProperties(physicalDevice, &physProps);
+    std::cout << "PhysicalDevice: " << physProps.deviceName << std::endl;
+    printf("Device API %u.%u.%u\n",
+    VK_VERSION_MAJOR(physProps.apiVersion),
+    VK_VERSION_MINOR(physProps.apiVersion),
+    VK_VERSION_PATCH(physProps.apiVersion));
 }
 
 VKAPI_ATTR vk::Bool32 VKAPI_CALL debug_message(
