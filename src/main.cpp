@@ -21,6 +21,9 @@ int main(){
     prepareShaders();
     createRayTracingPipeline();
     createShaderBindingTable();
+    std::cout << "metallic: " << model.materials[0].pbrMetallicRoughness.metallicFactor << std::endl;
+    std::cout << "roughness: " << model.materials[0].pbrMetallicRoughness.roughnessFactor << std::endl;
+    std::cout << "emissive: " << model.materials[0].emissiveFactor[0] << ", " << model.materials[0].emissiveFactor[1] << ", " << model.materials[0].emissiveFactor[2] << std::endl;
     drawCall(exeDir);
     return 0;
 }

@@ -1,5 +1,6 @@
 #include "../include/accel.hpp"
 #include "../include/globals.hpp"
+#include <algorithm>
 
 void createDescriptor(size_t countSets){
     size_t imageCount = std::max<size_t>(1, model.images.size());

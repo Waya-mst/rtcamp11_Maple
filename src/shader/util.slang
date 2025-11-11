@@ -1,6 +1,10 @@
 #pragma once
 #include "random.slang"
 
+float cosTheta(float3 w) {
+    return w.z;
+}
+
 float3 worldToLocal(float3 worldDir, float3 normal) {
     float3 up = abs(normal.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
     float3 tangent = normalize(cross(up, normal));
@@ -32,4 +36,16 @@ float3 sampleGGX(float roughness, inout uint seed) {
     float theta = atan(alpha * sqrt(v) / sqrt(1.0 - v));
     float phi = 2.0 * PI * u;
     return float3(sin(phi) * sin(theta), cos(phi) * sin(theta), cos(theta));
+}
+
+// 間違えてるかも
+float pre_ggxGeometry(float3 v, float3 n, float a) {
+    float t = acos(dot(v, n));
+    float x = step(0.0, dot(v, n) / v.z);
+    return x * 2.0 / (1.0 + sqrt(1 + a * a * t * t));
+}
+
+float ggxGeometry(float3 i, float3 o, float3 m, float roughness) {
+    float a = roughness * roughness;
+    return pre_ggxGeometry(i, m, a) * pre_ggxGeometry(o, m, a);
 }

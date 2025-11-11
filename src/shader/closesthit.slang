@@ -59,7 +59,6 @@ void closestHitMain(
         B = cross(N, T);
     }
 
-    // 法線に直交化しておくとノーマルマップに優しい
     T = normalize(T - N * dot(N, T));
     B = normalize(cross(N, T));
 
@@ -112,48 +111,54 @@ void closestHitMain(
     float3 albedo = float3(0.0, 0.0, 0.0);
 
     if (metallic > 0.0) {
-        float roulette = rand(payload.seed);
-        if (roulette < 0.5) {
-            // diffuse
-            float3 i = -WorldRayDirection();
-            float rnd_u1 = rand(state);
-            float cos_t = sqrt(rnd_u1);
-            float sin_t = sqrt(max(1 - rnd_u1, 0));
-            float phi = 2.0 * PI * rand(state);
-            float3 dir = normalize(sin_t * cos(phi) * T + sin_t * sin(phi) * B + cos_t * N);
+        // specular(GGX)
+        // i: in, o: out, m: half
+        float3 i = worldToLocal(-WorldRayDirection(), payload.normal);
+        float3 m = sampleGGX(roughness, payload.seed);
+        float3 o = reflect(-i, m);
 
-            RayDesc rayDesc;
-            rayDesc.Origin = hitPos + Reflect * eps;
-            rayDesc.Direction = dir;
-            rayDesc.TMin = 0.001;
-            rayDesc.TMax = 1e6;
+        RayDesc rayDesc;
+        rayDesc.Origin = hitPos + o * eps;
+        rayDesc.Direction = localToWorld(o, payload.normal);
+        rayDesc.TMin = 0.001;
+        rayDesc.TMax = 1e6;
 
-            TraceRay(topLevelAS,
-                     RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-                     0xFF, 1, 0, 1, rayDesc, payload);
+        TraceRay(topLevelAS,
+                 RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                 0xFF, 1, 0, 1, rayDesc, payload);
 
-            albedo += payload.radiance;
-        }else{
-            // specular(GGX)
-            // i: in, o: out, m: half
-            float3 i = worldToLocal(-WorldRayDirection(), payload.normal);
-            float3 m = sampleGGX(roughness, payload.seed);
-            float3 o = reflect(-i, m);
+        float no = abs(cosTheta(o));
+        float ni = abs(cosTheta(i));
+        float nm = abs(cosTheta(m));
+        float mi = abs(dot(i, m));
 
-            RayDesc rayDesc;
-            rayDesc.Origin = hitPos + Reflect * eps;
-            rayDesc.Direction = localToWorld(o, payload.normal);
-            rayDesc.TMin = 0.001;
-            rayDesc.TMax = 1e6;
+        float3 F = baseColor;
+        float G = ggxGeometry(i, o, m, roughness);
 
-            TraceRay(topLevelAS,
-                     RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-                     0xFF, 1, 0, 1, rayDesc, payload);
-        }
+        float3 weight = F * G * dot(o, m) / (dot(i, payload.normal) * dot(m, payload.normal));
+        payload.radiance = emissive + weight * payload.radiance;
+
+        // float3 weight = float3(F * G * mi) / max(ni * nm, 0.1);
+        // payload.radiance = emissive + weight * payload.radiance;
+    } else {
+        // diffuse
+        float3 i = -WorldRayDirection();
+        float rnd_u1 = rand(state);
+        float cos_t = sqrt(rnd_u1);
+        float sin_t = sqrt(max(1 - rnd_u1, 0));
+        float phi = 2.0 * PI * rand(state);
+        float3 dir = normalize(sin_t * cos(phi) * T + sin_t * sin(phi) * B + cos_t * N);
+
+        RayDesc rayDesc;
+        rayDesc.Origin = hitPos + dir * eps;
+        rayDesc.Direction = dir;
+        rayDesc.TMin = 0.001;
+        rayDesc.TMax = 1e6;
+
+        TraceRay(topLevelAS,
+                 RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+                 0xFF, 1, 0, 1, rayDesc, payload);
+
+        payload.radiance += payload.radiance / 4;
     }
-
-
-
-
-    payload.radiance = emissive + 0.7 * baseColor;
 }

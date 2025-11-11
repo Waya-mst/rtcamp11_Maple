@@ -207,6 +207,144 @@ void loadTexture(std::string resourcePath){
 
     std::string baseDir = gltfPath.substr(0, gltfPath.find_last_of("/\\") + 1);
 
+    if(model.images.size() == 0){
+        const unsigned char* data = nullptr;
+        std::string texPath = baseDir + "../texture/dummy.jpg";
+        int width = 0;
+        int height = 0;
+        int comp = 4;
+        auto loaded = stbi_load(texPath.c_str(), &width, &height, &comp, STBI_rgb_alpha);
+
+        size_t imgDataSize = 4 * width * height;
+
+        Buffer buffer;
+        buffer.init(
+            physicalDevice, *device, imgDataSize,
+            vk::BufferUsageFlagBits::eTransferSrc,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+            data);
+        textureBuffers.push_back(std::move(buffer));
+        stbi_image_free((void*)data);
+
+        vk::ImageCreateInfo imgCI{};
+        imgCI.setImageType(vk::ImageType::e2D);
+        imgCI.setExtent(vk::Extent3D{(uint32_t)width, (uint32_t)height, 1});
+        imgCI.setMipLevels(1); imgCI.setArrayLayers(1);
+        imgCI.setFormat(vk::Format::eR8G8B8A8Unorm);
+        imgCI.setTiling(vk::ImageTiling::eOptimal);
+        imgCI.setUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled);
+        imgCI.setSamples(vk::SampleCountFlagBits::e1);
+        imgCI.setSharingMode(vk::SharingMode::eExclusive);
+
+        auto image = device->createImageUnique(imgCI);
+        auto memReq = device->getImageMemoryRequirements(image.get());
+        uint32_t memIndex = 0;
+        for(uint32_t i = 0; i < physicalDevice.getMemoryProperties().memoryTypeCount; i++){
+            if((memReq.memoryTypeBits & (1 << i)) &&
+            (physicalDevice.getMemoryProperties().memoryTypes[i].propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal))
+            {
+                memIndex = i; break;
+            }
+        }
+
+        vk::MemoryAllocateInfo mAI{memReq.size, memIndex};
+        auto mem = device->allocateMemoryUnique(mAI);
+        device->bindImageMemory(image.get(), mem.get(), 0);
+
+        vk::CommandBufferAllocateInfo tmpCmdBufAllocInfo;
+        tmpCmdBufAllocInfo.commandPool = commandPool.get();
+        tmpCmdBufAllocInfo.commandBufferCount = 1;
+        tmpCmdBufAllocInfo.level = vk::CommandBufferLevel::ePrimary;
+        std::vector<vk::UniqueCommandBuffer> tmpCmdBufs = device->allocateCommandBuffersUnique(tmpCmdBufAllocInfo);
+
+        vk::CommandBufferBeginInfo cmdBeginInfo;
+        cmdBeginInfo.setFlags(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
+
+        tmpCmdBufs[0]->begin(cmdBeginInfo);
+        {
+            vk::ImageMemoryBarrier barrior;
+            barrior.oldLayout = vk::ImageLayout::eUndefined;
+            barrior.newLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.image = image.get();
+            barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            barrior.subresourceRange.baseMipLevel = 0;
+            barrior.subresourceRange.levelCount = 1;
+            barrior.subresourceRange.baseArrayLayer = 0;
+            barrior.subresourceRange.layerCount = 1;
+            barrior.srcAccessMask = {};
+            barrior.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+            tmpCmdBufs[0]->pipelineBarrier(
+                vk::PipelineStageFlagBits::eTopOfPipe,
+                vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {barrior});
+        }
+        {
+            vk::BufferImageCopy imgCopyRegion;
+            imgCopyRegion.setBufferOffset(0);
+            imgCopyRegion.imageSubresource.setAspectMask(vk::ImageAspectFlagBits::eColor);
+            imgCopyRegion.imageSubresource.setMipLevel(0);
+            imgCopyRegion.imageSubresource.setBaseArrayLayer(0);
+            imgCopyRegion.imageSubresource.setLayerCount(1);
+            imgCopyRegion.setImageOffset(vk::Offset3D{0, 0, 0});
+            imgCopyRegion.setImageExtent({uint32_t(width), uint32_t(height), 1});
+            imgCopyRegion.setBufferRowLength(0);
+            imgCopyRegion.setBufferImageHeight(0);
+
+            auto& staging = textureBuffers.back();
+            tmpCmdBufs[0]->copyBufferToImage(
+                staging.buffer.get(),
+                image.get(), vk::ImageLayout::eTransferDstOptimal, { imgCopyRegion });
+        }
+        {
+            vk::ImageMemoryBarrier barrior;
+            barrior.oldLayout = vk::ImageLayout::eTransferDstOptimal;
+            barrior.newLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+            barrior.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrior.image = image.get();
+            barrior.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+            barrior.subresourceRange.baseMipLevel = 0;
+            barrior.subresourceRange.levelCount = 1;
+            barrior.subresourceRange.baseArrayLayer = 0;
+            barrior.subresourceRange.layerCount = 1;
+            barrior.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+            barrior.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+            tmpCmdBufs[0]->pipelineBarrier(
+                vk::PipelineStageFlagBits::eTransfer,
+                vk::PipelineStageFlagBits::eRayTracingShaderKHR, {}, {}, {}, {barrior});
+        }
+        tmpCmdBufs[0]->end();
+
+        vk::CommandBuffer submitCmdBuf[1] = {tmpCmdBufs[0].get()};
+        vk::SubmitInfo submitInfo;
+        submitInfo.setCommandBufferCount(1);
+        submitInfo.setPCommandBuffers(submitCmdBuf);
+
+        queue.submit({submitInfo});
+        queue.waitIdle();
+
+        vk::ImageViewCreateInfo texImgViewCreateInfo;
+        texImgViewCreateInfo.image = image.get();
+        texImgViewCreateInfo.viewType = vk::ImageViewType::e2D;
+        texImgViewCreateInfo.format = vk::Format::eR8G8B8A8Unorm;
+        texImgViewCreateInfo.components.r = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.components.g = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.components.b = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.components.a = vk::ComponentSwizzle::eIdentity;
+        texImgViewCreateInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+        texImgViewCreateInfo.subresourceRange.baseMipLevel = 0;
+        texImgViewCreateInfo.subresourceRange.levelCount = 1;
+        texImgViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+        texImgViewCreateInfo.subresourceRange.layerCount = 1;
+        vk::UniqueImageView texImgView = device->createImageViewUnique(texImgViewCreateInfo);
+
+        textureImages.push_back(std::move(image));
+        textureMemorys.push_back(std::move(mem));
+        textureImageViews.push_back(std::move(texImgView));
+    }
+
     for(const auto& img : model.images){
         const unsigned char* data = nullptr;
         int width = 0;
