@@ -136,14 +136,13 @@ void closestHitMain(
         float G = ggxGeometry(i, o, m, roughness);
 
         float3 weight = F * G * dot(o, m) / (dot(i, payload.hitNormal) * dot(m, payload.hitNormal));
-        payload.radiance += emissive + weight * envMapTex.SampleLevel(envSampler, o, 0.0).rgb;
+        payload.radiance = emissive + weight * envMapTex.SampleLevel(envSampler, o, 0.0).rgb;
 
     } else {
         // diffuse
-        float3 dir = sampleHemisphereCosine(N, payload.seed);
+        float3 dir = sampleHemisphereCosine(Ns, payload.seed);
         payload.nextRay = dir;
 
-        payload.radiance += emissive + baseColor * envMapTex.SampleLevel(envSampler, dir, 0.0).rgb;
-        payload.seed = state;
+        payload.radiance = emissive + baseColor * envMapTex.SampleLevel(envSampler, dir, 0.0).rgb;
     }
 }

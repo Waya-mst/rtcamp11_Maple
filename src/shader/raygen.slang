@@ -25,7 +25,7 @@ void raygenMain() {
 
     Payload payload;
     payload.miss_frag = false;
-    payload.seed = seed;
+    payload.seed = state;
     payload.hitPoint = float3(0.0, 0.0, 0.0);
     payload.hitTangent = float3(0.0, 0.0, 0.0);
     payload.hitNormal = float3(0.0, 0.0, 0.0);

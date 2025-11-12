@@ -10,7 +10,7 @@ uint Hash_Wang(uint key) {
     return key;
 }
 
-public uint pcg(uint state)
+public uint pcg(inout uint state)
 {
     uint prev = state * 747796405u + 2891336453u;
     uint word = ((prev >> ((prev >> 28u) + 4u)) ^ prev) * 277803737u;
