@@ -22,7 +22,7 @@ void closestHitMain(
                          vertices[i1].normal.xyz * u +
                          vertices[i2].normal.xyz * v);
 
-    payload.normal = N;
+    payload.hitNormal = N;
 
     float2 uv = vertices[i0].texCoord.xy * w +
                 vertices[i1].texCoord.xy * u +
@@ -62,6 +62,9 @@ void closestHitMain(
     T = normalize(T - N * dot(N, T));
     B = normalize(cross(N, T));
 
+    payload.hitTangent = T;
+    payload.hitBitangent = B;
+
     float3 pObj = vertices[i0].pos.xyz * w +
                   vertices[i1].pos.xyz * u +
                   vertices[i2].pos.xyz * v;
@@ -72,6 +75,9 @@ void closestHitMain(
     float3 Reflect = reflect(inRay, Ns);
     float eps = max(1e-4, 1e-3 * length(hitPos));
 
+    payload.hitPoint = hitPos;
+    payload.inRay = -WorldRayDirection();
+
     float3 baseColor = float3(0.0, 0.0, 0.0);
     float transmission = 1.0;
     float ior = 0.0;
@@ -81,6 +87,8 @@ void closestHitMain(
 
     uint matId = primitiveMat[prim];
     Material m = materials[matId];
+
+    payload.material = m;
 
     baseColor = m.baseColorFactor.rgb;
     transmission = m.transmission;
@@ -110,22 +118,14 @@ void closestHitMain(
 
     float3 albedo = float3(0.0, 0.0, 0.0);
 
-    if (metallic > 0.0) {
+    if (metallic > 0.01) {
         // specular(GGX)
         // i: in, o: out, m: half
-        float3 i = worldToLocal(-WorldRayDirection(), payload.normal);
+        float3 i = worldToLocal(-WorldRayDirection(), payload.hitNormal);
         float3 m = sampleGGX(roughness, payload.seed);
         float3 o = reflect(-i, m);
 
-        RayDesc rayDesc;
-        rayDesc.Origin = hitPos + o * eps;
-        rayDesc.Direction = localToWorld(o, payload.normal);
-        rayDesc.TMin = 0.001;
-        rayDesc.TMax = 1e6;
-
-        TraceRay(topLevelAS,
-                 RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-                 0xFF, 1, 0, 1, rayDesc, payload);
+        payload.nextRay = localToWorld(o, payload.hitNormal);
 
         float no = abs(cosTheta(o));
         float ni = abs(cosTheta(i));
@@ -135,30 +135,15 @@ void closestHitMain(
         float3 F = baseColor;
         float G = ggxGeometry(i, o, m, roughness);
 
-        float3 weight = F * G * dot(o, m) / (dot(i, payload.normal) * dot(m, payload.normal));
-        payload.radiance = emissive + weight * payload.radiance;
+        float3 weight = F * G * dot(o, m) / (dot(i, payload.hitNormal) * dot(m, payload.hitNormal));
+        payload.radiance += emissive + weight * envMapTex.SampleLevel(envSampler, o, 0.0).rgb;
 
-        // float3 weight = float3(F * G * mi) / max(ni * nm, 0.1);
-        // payload.radiance = emissive + weight * payload.radiance;
     } else {
         // diffuse
-        float3 i = -WorldRayDirection();
-        float rnd_u1 = rand(state);
-        float cos_t = sqrt(rnd_u1);
-        float sin_t = sqrt(max(1 - rnd_u1, 0));
-        float phi = 2.0 * PI * rand(state);
-        float3 dir = normalize(sin_t * cos(phi) * T + sin_t * sin(phi) * B + cos_t * N);
+        float3 dir = sampleHemisphereCosine(N, payload.seed);
+        payload.nextRay = dir;
 
-        RayDesc rayDesc;
-        rayDesc.Origin = hitPos + dir * eps;
-        rayDesc.Direction = dir;
-        rayDesc.TMin = 0.001;
-        rayDesc.TMax = 1e6;
-
-        TraceRay(topLevelAS,
-                 RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-                 0xFF, 1, 0, 1, rayDesc, payload);
-
-        payload.radiance += payload.radiance / 4;
+        payload.radiance += emissive + baseColor * envMapTex.SampleLevel(envSampler, dir, 0.0).rgb;
+        payload.seed = state;
     }
 }

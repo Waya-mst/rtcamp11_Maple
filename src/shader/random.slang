@@ -10,11 +10,12 @@ uint Hash_Wang(uint key) {
     return key;
 }
 
-public uint pcg(uint v)  
-{  
-    uint state = v * 747796405 + 2891336453;  
-    uint word = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;  
-    return word ^ word >> 22;  
+public uint pcg(uint state)
+{
+    uint prev = state * 747796405u + 2891336453u;
+    uint word = ((prev >> ((prev >> 28u) + 4u)) ^ prev) * 277803737u;
+    state = prev;
+    return (word >> 22u) ^ word;
 }
 
 public uint2 pcg2d(uint2 v)

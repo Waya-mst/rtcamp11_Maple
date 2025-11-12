@@ -1,5 +1,6 @@
 #include "common_types.slang"
 #include "random.slang"
+#include "util.slang"
 
 [shader("raygen")]
 void raygenMain() {
@@ -25,6 +26,18 @@ void raygenMain() {
     Payload payload;
     payload.miss_frag = false;
     payload.seed = seed;
+    payload.hitPoint = float3(0.0, 0.0, 0.0);
+    payload.hitTangent = float3(0.0, 0.0, 0.0);
+    payload.hitNormal = float3(0.0, 0.0, 0.0);
+    payload.radiance = float3(0.0, 0.0, 0.0);
+    payload.depth = 0;
+
+    float3 baseColor = float3(0.0, 0.0, 0.0);
+    float transmission = 1.0;
+    float ior = 0.0;
+    float metallic = 0.0;
+    float roughness = 0.0;
+    float3 emissive = float3(0.0, 0.0, 0.0);
 
     RayDesc rayDesc;
 
@@ -44,12 +57,25 @@ void raygenMain() {
             rayDesc.TMin = 0.001;
             rayDesc.TMax = 1e6;
 
-            payload.radiance = float3(0.0, 0.0, 0.0);
-            payload.normal = float3(0.0, 0.0, 0.0);
-            payload.depth = 0;
-
             TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 0, 0, 0, rayDesc, payload);
-            radiance += payload.radiance;
+            if (payload.miss_frag) {
+                radiance = payload.radiance;
+            }
+
+            for (int d = 0; d < max_depth; ++d) {
+                float3 hitPos = payload.hitPoint;
+                float eps = max(1e-4, 1e-3 * length(hitPos));
+
+                RayDesc nextRayDesc;
+                nextRayDesc.Origin = payload.hitPoint + payload.nextRay * eps;
+                nextRayDesc.Direction = payload.nextRay;
+                nextRayDesc.TMax = 1e6;
+                nextRayDesc.TMin = 0.001;
+
+                TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 1, 0, 1, rayDesc, payload);
+
+                radiance += payload.radiance;
+            }
         }
     }
     radiance /= sampleCount;

@@ -49,3 +49,24 @@ float ggxGeometry(float3 i, float3 o, float3 m, float roughness) {
     float a = roughness * roughness;
     return pre_ggxGeometry(i, m, a) * pre_ggxGeometry(o, m, a);
 }
+
+float3 sampleHemisphereCosine(float3 normal, inout uint seed) {
+    float u = rand(seed);
+    float v = rand(seed);
+
+    float phi = 2.0 * PI * u;
+    float cosTheta = sqrt(1.0 - v);
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
+    float3 direction;
+    direction.x = cos(phi) * sinTheta;
+    direction.y = sin(phi) * sinTheta;
+    direction.z = cosTheta;
+
+    float3 up = abs(normal.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
+    float3 tangent = normalize(cross(up, normal));
+    float3 bitangent = cross(normal, tangent);
+
+    float3 sampleDirection = tangent * direction.x + bitangent * direction.y + normal * direction.z;
+    return normalize(sampleDirection);
+}
