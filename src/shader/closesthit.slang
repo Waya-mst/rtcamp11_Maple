@@ -7,7 +7,7 @@ void closestHitMain(
     in BuiltInTriangleIntersectionAttributes attr,
     inout Payload payload
 ) {
-    uint state = Hash_Wang(payload.seed);
+    //uint state = Hash_Wang(payload.seed);
 
     const int prim = PrimitiveIndex();
     const uint i0 = indices[prim * 3 + 0];
@@ -118,6 +118,9 @@ void closestHitMain(
 
     float3 albedo = float3(0.0, 0.0, 0.0);
 
+    float3 prv_throughput = payload.throughput;
+    float3 cur_throughput = prv_throughput * baseColor;
+
     if (metallic > 0.01) {
         // specular(GGX)
         // i: in, o: out, m: half
@@ -143,6 +146,7 @@ void closestHitMain(
         float3 dir = sampleHemisphereCosine(Ns, payload.seed);
         payload.nextRay = dir;
 
-        payload.radiance = emissive + baseColor * envMapTex.SampleLevel(envSampler, dir, 0.0).rgb;
+        payload.radiance = prv_throughput * emissive + cur_throughput * envMapTex.SampleLevel(envSampler, dir, 0.0).rgb;
+        payload.throughput = cur_throughput;
     }
 }

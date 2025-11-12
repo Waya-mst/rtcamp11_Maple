@@ -33,4 +33,6 @@ public struct Payload
     public float3 radiance;
     public Material material;
     public float2 uv;
+
+    public float3 throughput;
 };

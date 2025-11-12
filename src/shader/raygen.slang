@@ -37,6 +37,7 @@ void raygenMain() {
     payload.hitTangent = float3(0.0, 0.0, 0.0);
     payload.hitNormal = float3(0.0, 0.0, 0.0);
     payload.radiance = float3(0.0, 0.0, 0.0);
+    payload.throughput = float3(1.0, 1.0, 1.0);
 
     int sampleCount = 225;
     float3 radiance = float3(0.0, 0.0, 0.0);
@@ -75,23 +76,14 @@ void raygenMain() {
                 float eps = max(1e-4, 1e-3 * length(hitPos));
 
                 RayDesc nextRayDesc;
-                nextRayDesc.Origin = payload.hitPoint + payload.nextRay * eps;
+                nextRayDesc.Origin = payload.hitPoint + payload.hitNormal * eps;
                 nextRayDesc.Direction = payload.nextRay;
                 nextRayDesc.TMax = 1e6;
                 nextRayDesc.TMin = 0.001;
 
                 TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 1, 0, 1, nextRayDesc, payload);
 
-                radiance += float3(
-                    throughput.r * payload.radiance.r,
-                    throughput.g * payload.radiance.g,
-                    throughput.b * payload.radiance.b
-                );
-                throughput = float3(
-                    throughput.r * payload.radiance.r,
-                    throughput.g * payload.radiance.g,
-                    throughput.b * payload.radiance.b
-                );
+                radiance += payload.radiance;
             }
         }
     }
