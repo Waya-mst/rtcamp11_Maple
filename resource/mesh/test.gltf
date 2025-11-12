@@ -21,22 +21,22 @@
 	"materials":[
 		{
 			"doubleSided":true,
-			"name":"Material.005",
+			"name":"Material.006",
 			"pbrMetallicRoughness":{
 				"baseColorFactor":[
-					0.8001648187637329,
-					0.20151934027671814,
-					0.0432649590075016,
+					0.006696479395031929,
+					0.8006223440170288,
+					0.12136821448802948,
 					1
 				],
-				"metallicFactor":0.5347431898117065,
-				"roughnessFactor":0.8625377416610718
+				"metallicFactor":0,
+				"roughnessFactor":0.5
 			}
 		}
 	],
 	"meshes":[
 		{
-			"name":"Suzanne.001",
+			"name":"Suzanne.002",
 			"primitives":[
 				{
 					"attributes":{
@@ -54,15 +54,15 @@
 		{
 			"bufferView":0,
 			"componentType":5126,
-			"count":31488,
+			"count":2015115,
 			"max":[
-				1.328185796737671,
-				0.9392362236976624,
-				0.8224414587020874
+				1.3289541006088257,
+				0.9392380714416504,
+				0.8226393461227417
 			],
 			"min":[
-				-1.328185796737671,
-				-0.971822202205658,
+				-1.3289541006088257,
+				-0.9718930125236511,
 				-0.7782661318778992
 			],
 			"type":"VEC3"
@@ -70,51 +70,51 @@
 		{
 			"bufferView":1,
 			"componentType":5126,
-			"count":31488,
+			"count":2015115,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":2,
 			"componentType":5126,
-			"count":31488,
+			"count":2015115,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":3,
-			"componentType":5123,
-			"count":47232,
+			"componentType":5125,
+			"count":3022848,
 			"type":"SCALAR"
 		}
 	],
 	"bufferViews":[
 		{
 			"buffer":0,
-			"byteLength":377856,
+			"byteLength":24181380,
 			"byteOffset":0,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":377856,
-			"byteOffset":377856,
+			"byteLength":24181380,
+			"byteOffset":24181380,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":251904,
-			"byteOffset":755712,
+			"byteLength":16120920,
+			"byteOffset":48362760,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":94464,
-			"byteOffset":1007616,
+			"byteLength":12091392,
+			"byteOffset":64483680,
 			"target":34963
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":1102080,
+			"byteLength":76575072,
 			"uri":"test.bin"
 		}
 	]

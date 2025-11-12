@@ -20,10 +20,10 @@ glm::vec3 CubemapDirectionFromFaceXY(int face, int x, int y, int faceSize)
         dir = glm::vec3(-1.0f,     t,     s);
         break;
     case 2: // +Y
-        dir = glm::vec3(   s,  1.0f,    t);
+        dir = glm::vec3(   s,  1.0f,    -t);
         break;
     case 3: // -Y
-        dir = glm::vec3(   s, -1.0f,   -t);
+        dir = glm::vec3(   s, -1.0f,   t);
         break;
     case 4: // +Z
         dir = glm::vec3(   s,     t,  1.0f);

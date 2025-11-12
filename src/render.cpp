@@ -53,11 +53,13 @@ void drawCall(std::filesystem::path exePath){
     updateDescriptorSet(0, outputView.get());
 
     const auto start = std::chrono::system_clock::now();
-    const auto deadline = start + std::chrono::seconds(80);
+    const auto deadline = start + std::chrono::seconds(180);
 
     int update = 0;
     
-    while(frameIndex < fps * playTime && std::chrono::system_clock::now() < deadline){
+    while(
+        //frameIndex < 3 && 
+        frameIndex < fps * playTime && std::chrono::system_clock::now() < deadline){
         {
             auto now = std::chrono::system_clock::now();
             auto remaining = (deadline > now) ? (deadline - now) : std::chrono::system_clock::duration::zero();
@@ -79,10 +81,15 @@ void drawCall(std::filesystem::path exePath){
 
         static std::chrono::system_clock::time_point prevTime;
         static float up = 2.0f;
+        static float theta = M_PI / (fps * playTime);
+        static float d = 4 / (fps * playTime);
 
-        const auto nowTime = std::chrono::system_clock::now();
-        const auto delta = 0.05 * std::chrono::duration_cast<std::chrono::microseconds>(nowTime - prevTime).count();
-        scene.camPos += up * std::sin(delta);
+        // const auto nowTime = std::chrono::system_clock::now();
+        // const auto delta = 0.05 * std::chrono::duration_cast<std::chrono::microseconds>(nowTime - prevTime).count();
+        //scene.camPos += up * std::sin(delta);
+        scene.camPos.x = 1.5 * std::sin(5/4*M_PI + frameIndex * theta);
+        scene.camPos.y = 3 * std::sin(6/4*M_PI + frameIndex * theta);
+        scene.camPos.z = 4 * std::cos(5/4*M_PI + frameIndex * theta);
         memcpy(uniformData, &scene, (size_t)bufferSize);
 
         vk::MappedMemoryRange flushMemoryRange;
@@ -90,18 +97,6 @@ void drawCall(std::filesystem::path exePath){
         flushMemoryRange.setOffset(0);
         flushMemoryRange.setSize(VK_WHOLE_SIZE);
         device->flushMappedMemoryRanges({flushMemoryRange});
-
-        // static float up = 0.2f;
-        // scene.camPos += up * update;
-        // memcpy(uniformData, &scene, (size_t)bufferSize);
-
-        // vk::MappedMemoryRange flushMemoryRange;
-        // flushMemoryRange.setMemory(sceneBuffer.memory.get());
-        // flushMemoryRange.setOffset(0);
-        // flushMemoryRange.setSize(VK_WHOLE_SIZE);
-        // device->flushMappedMemoryRanges({flushMemoryRange});
-
-        // update++;
 
         //----------------------------------------------------------------------------
 

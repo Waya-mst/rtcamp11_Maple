@@ -12,7 +12,7 @@ void raygenMain() {
     ndc.x = 2.0 * pixel.x - 1.0;
     ndc.y = -(2.0 * pixel.y - 1.0);
 
-    uint seed = uint(pixel.x) * uint(pixel.y * ndc.y) * uint(pixel.x * ndc.x);
+    uint seed = launchIndex.x + launchIndex.y * launchSize.x;
     uint state = Hash_Wang(seed);
 
     // カメラ基底ベクトル
@@ -23,15 +23,6 @@ void raygenMain() {
     // FOVからスクリーン面の大きさを決定
     float t = tan(0.5 * kVFov);
 
-    Payload payload;
-    payload.miss_frag = false;
-    payload.seed = state;
-    payload.hitPoint = float3(0.0, 0.0, 0.0);
-    payload.hitTangent = float3(0.0, 0.0, 0.0);
-    payload.hitNormal = float3(0.0, 0.0, 0.0);
-    payload.radiance = float3(0.0, 0.0, 0.0);
-    payload.depth = 0;
-
     float3 baseColor = float3(0.0, 0.0, 0.0);
     float transmission = 1.0;
     float ior = 0.0;
@@ -40,12 +31,25 @@ void raygenMain() {
     float3 emissive = float3(0.0, 0.0, 0.0);
 
     RayDesc rayDesc;
+    Payload payload;
+    payload.miss_frag = false;
+    payload.hitPoint = float3(0.0, 0.0, 0.0);
+    payload.hitTangent = float3(0.0, 0.0, 0.0);
+    payload.hitNormal = float3(0.0, 0.0, 0.0);
+    payload.radiance = float3(0.0, 0.0, 0.0);
 
-    int sampleCount = 16;
+    int sampleCount = 225;
     float3 radiance = float3(0.0, 0.0, 0.0);
+
+    float3 throughput = float3(1.0, 1.0, 1.0);
 
     for (int sy = 0; sy < sqrt(sampleCount); sy++) {
         for (int sx = 0; sx < sqrt(sampleCount); sx++) {
+
+            uint sampleIndex = sy * (int)sqrt(sampleCount) + sx;
+            payload.seed = Hash_Wang(seed ^ sampleIndex);
+            payload.depth = 0;
+
             float2 jitter = sampleDisk(state) * (1.0 / float2(launchSize));
             float2 ndcJ = float2(2.0 * (pixel.x + jitter.x) - 1.0, -2.0 * (pixel.y + jitter.y) + 1.0);
             float3 dir = normalize(forward +
@@ -60,7 +64,11 @@ void raygenMain() {
             TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 0, 0, 0, rayDesc, payload);
             if (payload.miss_frag) {
                 radiance = payload.radiance;
+                outputTexture[launchIndex] = float4(radiance, 1.0);
+                return;
             }
+
+            radiance += payload.radiance;
 
             for (int d = 0; d < max_depth; ++d) {
                 float3 hitPos = payload.hitPoint;
@@ -72,9 +80,18 @@ void raygenMain() {
                 nextRayDesc.TMax = 1e6;
                 nextRayDesc.TMin = 0.001;
 
-                TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 1, 0, 1, rayDesc, payload);
+                TraceRay(topLevelAS, RAY_FLAG_NONE, 0xFF, 1, 0, 1, nextRayDesc, payload);
 
-                radiance += payload.radiance;
+                radiance += float3(
+                    throughput.r * payload.radiance.r,
+                    throughput.g * payload.radiance.g,
+                    throughput.b * payload.radiance.b
+                );
+                throughput = float3(
+                    throughput.r * payload.radiance.r,
+                    throughput.g * payload.radiance.g,
+                    throughput.b * payload.radiance.b
+                );
             }
         }
     }

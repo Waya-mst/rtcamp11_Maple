@@ -111,7 +111,7 @@ void closestHitMain(
     }
 
     payload.depth += 1;
-    if (payload.depth >= 5) {
+    if (payload.depth >= max_depth + 1) {
         payload.radiance = emissive;
         return;
     }

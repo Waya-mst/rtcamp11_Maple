@@ -17,7 +17,7 @@ SceneUBO scene = {
         glm::vec4(glm::normalize(glm::vec3(1.0f, -2.0f, -3.0f)), 0.0f), // Light dir
         glm::vec4(0.2f, 0.2f, 0.2f, 0.0f) // Light color
     },
-    glm::vec4(-1.0f, 2.0f, 3.0f, 1.0f) // Camera Position
+    glm::vec4(-1.0f, -2.0f, 3.0f, 1.0f) // Camera Position
 };
 void* sceneData;
 
